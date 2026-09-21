@@ -1,0 +1,31 @@
+LINE SCANNER PRO — REVISION Y DISEÑO V5
+Fecha: 2026-09-21
+
+BASE REVISADA
+- Line_Scanner_Pro_V4_REPARADO.html
+- line_scanner_server_V4.py
+- Line_Scanner_Pro_MOBILE.html
+
+HALLAZGOS
+1. V4 ya tenía Poisson, hándicap asiático, líneas de goles, memoria, registro y liquidación automática.
+2. LIVE, FINAL y análisis estaban demasiado mezclados en la misma interfaz.
+3. El refresh del feed podía reemplazar la lista activa y ocultar partidos finalizados.
+4. La liquidación automática y los diagnósticos de líneas asiáticas se conservaron.
+5. El PWA necesitaba una nueva versión de caché para evitar mostrar una versión antigua.
+6. xG/H2H/alineaciones no deben inventarse cuando no hay fuente real.
+
+V5
+- Diseño 3: dashboard oscuro, tarjetas y navegación por secciones.
+- Inicio / En vivo / Finalizados / Predicciones IA / Estadísticas / Favoritos / Configuración.
+- Finalizados conservados al refrescar cuotas.
+- Predicciones IA basadas en el motor estadístico existente, con probabilidades, confianza, robustez y calidad de datos.
+- Confianza = indicador de consistencia/calidad, no garantía.
+- Favoritos persistentes.
+- Movimiento de mercado basado en snapshots guardados.
+- Registro, memoria, importación/exportación y liquidación automática conservados.
+- PWA y Service Worker versionados; iconos SVG + PNG.
+
+LIMITACIONES
+- xG, H2H y alineaciones solo se muestran cuando existe dato real disponible.
+- ESPN permanece como respaldo del código V4, pero su conectividad externa no fue verificada de extremo a extremo en este entorno.
+- La API key no se incluye en ningún archivo.
