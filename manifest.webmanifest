@@ -1,9 +1,0 @@
-{
-  "name":"Line Scanner Pro Mobile",
-  "short_name":"Line Scanner",
-  "start_url":"./index.html",
-  "display":"standalone",
-  "background_color":"#080b14",
-  "theme_color":"#0b1020",
-  "lang":"es"
-}
