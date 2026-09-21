@@ -1,1 +1,0 @@
-window.__LS_LOCAL_PROXY=true;
