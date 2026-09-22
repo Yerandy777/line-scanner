@@ -1,4 +1,4 @@
-LINE SCANNER PRO V17 — API-FOOTBALL
+LINE SCANNER PRO V18 — API-FOOTBALL
 ==================================
 
 Esta versión corrige el diagnóstico de conexión de API-Football.
