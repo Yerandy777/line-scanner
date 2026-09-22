@@ -1,0 +1,47 @@
+AUDITORÍA FUNCIONAL V13
+
+A. INTERFAZ
+- Inicio: IDs y navegación conservados.
+- En Vivo: feed y marcador separados.
+- Finalizados: resultados conservados.
+- Predicciones IA: motor local existente conservado.
+- Scanner 01: catálogo + pegado múltiple + análisis individual.
+- Estadísticas: memoria/calibración existentes conservadas.
+- Favoritos: navegación y favoritos conservados.
+- Configuración: una sola clave visible; opciones avanzadas plegadas.
+- PWA: manifest, iconos y service worker incluidos.
+
+B. SCANNER 01
+- 1, 5, 20 o más líneas.
+- Cada línea se procesa individualmente.
+- 🆚 / vs / v independiente.
+- Hándicap: +0.5, -0.5, 0.5 antes del visitante, rangos como -0.75.
+- Línea de goles: (2.5), (3), (2.75), rangos.
+- () significa sin línea.
+- La línea escrita por el usuario se conserva.
+- Búsqueda automática por nombres normalizados y alias.
+- Búsqueda de eventos y, si hace falta, resultados recientes.
+- Actualización agrupada de eventos resueltos.
+
+C. API
+- Una clave The Odds API.
+- CORS soportado por el proveedor.
+- Errores 400/401/403/429 convertidos a mensajes legibles.
+- Cabeceras de cuota capturadas cuando el navegador las expone.
+- Sin clave embebida en los archivos.
+
+D. DATOS Y ANÁLISIS
+- No se inventan xG/H2H/alineaciones.
+- Los datos de mercado se separan del resultado final.
+- Liquidación asiática existente conservada.
+- Resultados finales pueden liquidar registros cuando el evento queda confirmado.
+
+E. CACHÉ / CONSUMO
+- Eventos cacheados 2 min.
+- Scores live cacheados ~25 s.
+- Scores recientes cacheados 2 min.
+- Monitor agrupado por sport_key.
+- Service worker no cachea APIs externas.
+
+F. VERIFICACIÓN EXTERNA
+La única parte que depende de la cuenta del usuario es que la API key sea válida y tenga acceso a la cobertura solicitada. Esa parte no se puede verificar sin la clave y no se debe compartir por chat.
