@@ -62,7 +62,7 @@
  .s01-paste-title{font-size:16px}
 }
 
-.advanced-settings{margin-top:12px}.advanced-settings summary{cursor:pointer;font-weight:700;color:var(--muted);padding:8px 0}.advanced-settings .settings-grid{margin-top:10px}</style></head><body><script>window.__LS_LOCAL_PROXY=true;</script>
+.advanced-settings{margin-top:12px}.advanced-settings summary{cursor:pointer;font-weight:700;color:var(--muted);padding:8px 0}.advanced-settings .settings-grid{margin-top:10px}</style></head><body><script>window.__LS_LOCAL_PROXY=false;</script>
 <div class="app-shell">
 <header class="topbar">
   <div class="brand"><div class="brand-mark">LS</div><div><div class="brand-title">LINE SCANNER <span>PRO</span></div><div class="brand-sub">Sports intelligence · análisis en vivo · resultados · predicciones</div></div></div>
@@ -519,33 +519,91 @@ function apiKeyValue(){return (($('apiKey').value||'').trim());}
 function setQuotaFrom(res){state.quota={remaining:res.headers.get('x-requests-remaining'),used:res.headers.get('x-requests-used'),last:res.headers.get('x-requests-last')};}
 function quotaText(){const q=state.quota;return q.remaining!==null?` · cuota restante ${esc(q.remaining)} · último coste ${esc(q.last??'—')}`:'';}
 function localProxyActive(){return /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(location.origin)&&window.__LS_LOCAL_PROXY===true;}
-function buildApiRequest(url){
- const u=new URL(url);
- if(localProxyActive()){
-  u.searchParams.delete('apiKey');
-  return '/__odds_proxy?path='+encodeURIComponent(u.pathname+u.search);
- }
- const key=apiKeyValue();
- if(!key)throw new Error('Falta API key en el servidor. Inicia el servidor con INICIAR_LINE_SCANNER.bat y escribe tu clave cuando la solicite.');
- u.searchParams.set('apiKey',key);
- return u.toString();
-}
+function buildApiRequest(url){ return url; }
 async function apiJSON(url){
- const request=buildApiRequest(url);let res;
- try{res=await fetch(request,{cache:'no-store'});}
- catch(e){throw new Error(localProxyActive()?'No se pudo alcanzar el proxy local. Reinicia INICIAR_LINE_SCANNER.bat.':'No se pudo conectar con API-Football. Revisa internet, navegador y API key.');}
- setQuotaFrom(res);
- const bodyText=await res.text();
- if(!res.ok){
-  let detail='';try{const j=JSON.parse(bodyText);detail=j.message||j.error_code||'';}catch{}
-  if(res.status===400)throw new Error('HTTP 400 · '+(detail||'petición o mercado no disponible para este deporte/casa'));
-  if(res.status===401)throw new Error('HTTP 401 · API key inválida, revocada o sin suscripción activa');
-  if(res.status===403)throw new Error('HTTP 403 · acceso denegado');
-  if(res.status===429)throw new Error('HTTP 429 · límite/cuota alcanzado');
-  throw new Error('HTTP '+res.status+(detail?' · '+detail:''));
- }
- let data;try{data=JSON.parse(bodyText);}catch{throw new Error('Respuesta no JSON del proveedor');}
- return {data,headers:res.headers};
+  // V19: API-Football is the only network provider.
+  const u=v16OldUrl(url);
+  if(!u) return {data:[],headers:new Headers()};
+  const path=u.pathname, parts=path.split('/').filter(Boolean), q=u.searchParams;
+  if(path.endsWith('/sports/')){
+    const j=await v19AF('/leagues',{current:true});
+    return {data:(j.response||[]).map(r=>({key:v16LeagueKey(r.league?.id),group:'soccer',title:r.league?.name||'Liga',league_id:r.league?.id,country:r.country?.name,logo:r.league?.logo})),headers:new Headers()};
+  }
+  const evIdx=parts.indexOf('events');
+  if(evIdx>=0 && parts[evIdx+1] && parts.includes('odds')){
+    const id=parts[evIdx+1];
+    const j=await v19AF('/odds',{fixture:id});
+    return {data:v16OddsToOld(j,id),headers:new Headers()};
+  }
+  if(parts.includes('scores')){
+    const sport=parts[parts.indexOf('sports')+1]||'';
+    const league=v16LeagueParam(sport);
+    const days=Math.max(0,Math.min(3,Number(q.get('daysFrom')||0)));
+    let out=[];
+    if(days===0){
+      out.push(...await v19Fixtures(league?{live:'all',league}:{live:'all'}));
+      out.push(...await v19Fixtures(league?{league,season:v19Season(league),date:v19Today()}:{date:v19Today()}));
+    }else{
+      for(let i=0;i<=days;i++) out.push(...await v19Fixtures(league?{league,season:v19Season(league),date:v19DateOffset(-i)}:{date:v19DateOffset(-i)}));
+    }
+    const seen=new Set(); out=out.filter(x=>!seen.has(x.id)&&seen.add(x.id));
+    return {data:out,headers:new Headers()};
+  }
+  if(parts.includes('odds')){
+    const sport=parts[parts.indexOf('sports')+1]||''; const league=v16LeagueParam(sport);
+    const out=league?await v19Fixtures({league,season:v19Season(league),date:v19Today()}):await v19Fixtures({date:v19Today()});
+    return {data:out,headers:new Headers()};
+  }
+  if(parts.includes('events')){
+    const sport=parts[parts.indexOf('sports')+1]||''; const league=v16LeagueParam(sport);
+    const out=league?await v19Fixtures({league,season:v19Season(league),date:v19Today()}):await v19Fixtures({date:v19Today()});
+    return {data:out,headers:new Headers()};
+  }
+  return {data:await v19Fixtures({date:v19Today()}),headers:new Headers()};
+}
+function v19Today(){return new Date().toISOString().slice(0,10)}
+function v19DateOffset(days){const d=new Date();d.setDate(d.getDate()+Number(days||0));return d.toISOString().slice(0,10)}
+function v19Season(league){const y=new Date().getFullYear();return Number(league)===39 && new Date().getMonth()<6 ? y-1 : y}
+function v19Key(){const el=document.getElementById('apiKey');return el ? String(el.value||'').replace(/[\r\n\t]/g,'').trim() : ''}
+async function v19AF(path,params={}){
+  const key=v19Key();
+  if(!key) throw new Error('FALTA_API_KEY: escribe la clave de API-Football en Configuración.');
+  const u=new URL('https://v3.football.api-sports.io'+path);
+  for(const [k,v] of Object.entries(params)) if(v!==undefined&&v!==null&&v!=='') u.searchParams.set(k,String(v));
+  let res;
+  try{
+    res=await fetch(u.toString(),{method:'GET',cache:'no-store',headers:{'x-apisports-key':key,'Accept':'application/json'}});
+  }catch(e){throw new Error('NETWORK: el navegador no pudo llegar a API-Football. Comprueba internet/CORS.');}
+  const raw=await res.text(); let j={}; try{j=JSON.parse(raw)}catch{}
+  const errs=j?.errors&&typeof j.errors==='object'?Object.values(j.errors).flat().map(String):[];
+  const token=errs.find(x=>/application key|missing application key|invalid/i.test(x));
+  if(token){
+    if(/missing application key/i.test(token) && res.status===403) throw new Error('AUTH_MISSING: API-Football no recibió la cabecera x-apisports-key.');
+    throw new Error('AUTH_REJECTED: API-Football recibió la clave pero la rechazó. Verifica que sea la API key de Account → My Access en dashboard.api-football.com.');
+  }
+  if(res.status===429) throw new Error('QUOTA: API-Football devolvió 429. Se alcanzó el límite de solicitudes.');
+  if(res.status===403) throw new Error('FORBIDDEN: API-Football rechazó el acceso. Revisa restricciones de dominio/IP en el Dashboard.');
+  if(!res.ok) throw new Error('HTTP_'+res.status+(errs.length?' · '+errs.join(' · '):''));
+  if(errs.length) throw new Error('API_ERROR: '+errs.join(' · '));
+  if(j?.requests) state.quota={remaining:j.requests.limit_day!=null?Math.max(0,Number(j.requests.limit_day)-Number(j.requests.current||0)):null,used:j.requests.current??null,last:null};
+  return j;
+}
+async function v19Fixtures(params){const j=await v19AF('/fixtures',params);return Array.isArray(j.response)?j.response.map(v16FixtureToOld).filter(Boolean):[]}
+async function v19TestKey(){
+  const status=document.getElementById('apiStatus'), msg=document.getElementById('feedMsg'), diag=document.getElementById('diagnosticMsg');
+  if(!v19Key()){msg.textContent='❌ Falta la API key.';diag.textContent='Escribe la clave y vuelve a probar.';return false;}
+  status.textContent='Probando autenticación…'; msg.textContent='Consultando API-Football /status…';
+  try{
+    const j=await v19AF('/status');
+    const tokenErrors=j?.errors&&Object.keys(j.errors).length;
+    if(tokenErrors) throw new Error('AUTH_REJECTED: '+Object.values(j.errors).flat().join(' · '));
+    status.textContent='✅ API-Football autenticada';
+    msg.textContent='✅ Clave aceptada por API-Football. La autenticación funciona.';
+    diag.textContent='✅ OK: la clave llegó al servidor y fue aceptada.';
+    return true;
+  }catch(e){
+    status.textContent='❌ Error de autenticación'; msg.textContent='❌ '+e.message; diag.textContent='❌ '+e.message; return false;
+  }
 }
 function choosePoint(entries){const vals=entries.map(x=>Number(x.point)).filter(Number.isFinite);if(!vals.length)return null;const counts=new Map();vals.forEach(v=>counts.set(v,(counts.get(v)||0)+1));let best=null,bestN=-1;for(const [v,n] of counts){if(n>bestN||(n===bestN&&(best===null||Math.abs(v)<Math.abs(best)))){best=v;bestN=n;}}return best;}
 function bestPrice(entries,point){const xs=(entries||[]).filter(x=>Number.isFinite(Number(x.point))&&Number(x.point)===point&&Number.isFinite(Number(x.price)));if(!xs.length)return null;return xs.reduce((a,b)=>Number(b.price)>Number(a.price)?b:a,xs[0]);}
@@ -554,44 +612,7 @@ function marketArrays(ev){const spreadHome=[],spreadAway=[],totOver=[],totUnder=
 function linePointPreferred(primary,fallback){return choosePoint(primary.length?primary:fallback);}
 function applyMarketDataToMatch(m,ev){const a=marketArrays(ev),h=choosePoint(a.spreadHome),g=linePointPreferred(a.totOver,a.totUnder),hs=h!==null?asianParts(parseRangeToken(String(h))):null,gs=g!==null?asianParts(parseRangeToken(String(g))):null;const sh=bestPrice(a.spreadHome,h),so=bestPrice(a.totOver,g),su=bestPrice(a.totUnder,g),bb=a=>a&&a.length?a.reduce((x,y)=>Number(y.price)>Number(x.price)?y:x,a[0]):null;if(h!==null&&hs){m.h=h;m.hHome=h;m.hAway=-h;m.hParts=hs;m.hAwayParts=hs.map(x=>-x);m.betHSide=m.betHSide||'home';m.betHParts=m.betHSide==='away'?m.hAwayParts.slice():m.hParts.slice();m.hRange=parseRangeToken(String(h));m.rawH=h;m.rawHTeam=m.betHSide;}if(g!==null&&gs){m.g=g;m.gParts=gs;m.gRange=parseRangeToken(String(g));}m.marketOdds={...(m.marketOdds||{}),home:bb(a.hp)||m.marketOdds?.home||null,draw:bb(a.dp)||m.marketOdds?.draw||null,away:bb(a.ap)||m.marketOdds?.away||null,hcp:sh||m.marketOdds?.hcp||null,totalOver:so||m.marketOdds?.totalOver||null,totalUnder:su||m.marketOdds?.totalUnder||null};m.marketCoverage={spreads:a.spreadHome.length>0,totals:(a.totOver.length>0||a.totUnder.length>0),alternateSpreads:a.spreadHome.some(x=>x.market==='alternate_spreads'),alternateTotals:a.totOver.some(x=>x.market==='alternate_totals')||a.totUnder.some(x=>x.market==='alternate_totals')};m.marketHydratedAt=nowISO();return attachResearch(m);}
 function normalizeOdds(data){if(!Array.isArray(data))return[];return data.map(ev=>{const hp=[],ap=[],dp=[];for(const b of (ev.bookmakers||[]))for(const mk of (b.markets||[]))if(mk.key==='h2h')for(const o of (mk.outcomes||[])){const rec={name:o.name,price:Number(o.price),bookmaker:b.title||b.key,market:'h2h'};if(o.name===ev.home_team)hp.push(rec);else if(o.name===ev.away_team)ap.push(rec);else if(String(o.name||'').toLowerCase()==='draw')dp.push(rec);}return attachResearch({id:'live_'+ev.id,name:`${ev.home_team} vs ${ev.away_team}`,home:ev.home_team,away:ev.away_team,h:null,g:null,hTeam:'home',hHome:null,hAway:null,hParts:null,hAwayParts:null,betHSide:'home',betHParts:null,gParts:null,rawH:null,rawHTeam:'home',date:ev.commence_time,source:'live',updated:nowISO(),eventId:ev.id,sport:ev.sport_key,books:(ev.bookmakers||[]).length,completed:false,liveHome:null,liveAway:null,marketOdds:{home:outcomePrice(hp,ev.home_team),draw:outcomePrice(dp,'Draw'),away:outcomePrice(ap,ev.away_team)},marketCoverage:{spreads:false,totals:false,alternateSpreads:false,alternateTotals:false},marketHydratedAt:null});});}
-async function hydrateEventMarkets(m,force=false){if(!m||!m.eventId)return false;const age=m.marketHydratedAt?Date.now()-Date.parse(m.marketHydratedAt):Infinity;if(!force&&age<60000)return true;const key=apiKeyValue(),sport=m.sport||$('sport').value.trim()||'soccer_epl',region=$('region').value||'eu';if(!key)return false;$('feedMsg').textContent=`Cargando mercados ampliados para ${m.name}…`;const marketSets=['h2h,spreads,totals,alternate_spreads,alternate_totals','h2h,spreads,totals','h2h,alternate_spreads,alternate_totals','h2h,alternate_totals','h2h'];let lastErr=null;for(const markets of marketSets){try{const url=`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/events/${encodeURIComponent(m.eventId)}/odds/?apiKey=${encodeURIComponent(key)}&regions=${encodeURIComponent(region)}&markets=${encodeURIComponent(markets)}&oddsFormat=decimal`;const {data}=await apiJSON(url);const ev=Array.isArray(data)?data[0]:data;if(!ev)throw new Error('El proveedor no devolvió el evento seleccionado');applyMarketDataToMatch(m,ev);m.marketHydrated=true;state.history[m.id]=state.history[m.id]||[];state.history[m.id].push({t:Date.now(),h:m.h,g:m.g,marketOdds:m.marketOdds});state.history[m.id]=state.history[m.id].slice(-60);renderAll();renderDetail(analyzeMatch(m));const c=m.marketCoverage||{};$('feedMsg').textContent=`Mercados API-Football actualizados · HCP ${c.spreads?'sí':'no'} · O/U ${c.totals?'sí':'no'} · alternos HCP ${c.alternateSpreads?'sí':'no'} · alternos O/U ${c.alternateTotals?'sí':'no'}${quotaText()}`;return true}catch(e){lastErr=e;if(!String(e.message||'').includes('HTTP 400'))break;}}$('feedMsg').textContent='No se pudieron cargar mercados ampliados: '+(lastErr?.message||'respuesta no disponible')+' · El partido sigue disponible con H2H/manual.';return false;}
-async function loadSelectedMarkets(force=true){const m=state.matches.find(x=>x.id===state.selected);if(!m){$('feedMsg').textContent='Selecciona primero un partido del scanner.';return false;}return hydrateEventMarkets(m,force);}
-async function loadFeed(){
- const key=apiKeyValue();
- if(!key){$('feedMsg').textContent='Falta la API key.';return;}
- clearInterval(state.timer);state.timer=null;
- $('feedMsg').textContent='Consultando API-Football directamente…';$('liveDot').className='live-dot';
- try{
-   const leagueRaw=$('sport').value.trim()||'39';
-   const league=v16LeagueParam(leagueRaw)||leagueRaw;
-   const mode=$('region').value||'live';
-   let fresh=[];
-   if(mode==='all'){
-     fresh=await v16FixtureBundle({live:'all'});
-     const today=await v16FixtureBundle({date:v16Today()});
-     const seen=new Set(); fresh=[...fresh,...today].filter(x=>!seen.has(x.id)&&seen.add(x.id));
-   }else if(mode==='today'){
-     fresh=await v16FixtureBundle({league,season:v16SeasonForLeague(league),date:v16Today()});
-   }else{
-     const live=await v16FixtureBundle({live:'all'});
-     const today=await v16FixtureBundle({league,season:v16SeasonForLeague(league),date:v16Today()});
-     const seen=new Set(); fresh=[...live,...today].filter(x=>!seen.has(x.id)&&seen.add(x.id));
-   }
-   const oldByEvent=new Map(state.matches.filter(m=>m.eventId).map(m=>[m.eventId,m]));
-   for(const m of fresh){const old=oldByEvent.get(m.eventId);if(old){m.completed=old.completed===true;m.finalHome=old.finalHome;m.finalAway=old.finalAway;m.liveHome=old.liveHome;m.liveAway=old.liveAway;m.marketHydrated=old.marketHydrated;m.marketHydratedAt=old.marketHydratedAt;m.marketCoverage=old.marketCoverage;m.marketOdds=old.marketOdds||m.marketOdds;m.h=old.h??m.h;m.g=old.g??m.g;m.hParts=old.hParts||m.hParts;m.hAwayParts=old.hAwayParts||m.hAwayParts;m.betHSide=old.betHSide||m.betHSide;m.betHParts=old.betHParts||m.betHParts;m.gParts=old.gParts||m.gParts;attachResearch(m);}}
-   const completedKeep=state.matches.filter(m=>m.completed===true&&!fresh.some(f=>f.eventId&&m.eventId===f.eventId));
-   const manualKeep=state.matches.filter(m=>m.source==='manual'&&!m.eventId&&!fresh.some(f=>teamNorm(f.home)===teamNorm(m.home)&&teamNorm(f.away)===teamNorm(m.away)));
-   state.matches=[...fresh,...completedKeep,...manualKeep];
-   state.selected=state.selected&&state.matches.some(x=>x.id===state.selected)?state.selected:(state.matches[0]?.id||null);
-   $('apiStatus').textContent=state.matches.length+' eventos';
-   $('feedMsg').textContent=`Feed conectado · API-Football · ${state.matches.length} eventos${quotaText()} · ${new Date().toLocaleTimeString('es-ES')}`;
-   $('liveText').textContent='Feed conectado';$('liveDot').className='live-dot ok';renderAll();
-   if(state.selected){const m=state.matches.find(x=>x.id===state.selected);if(m&&!m.marketHydrated&&state.feedFirstLoad){state.feedFirstLoad=false;await hydrateEventMarkets(m,false);}else if(m)renderDetail(analyzeMatch(m));}
-   if(!state.scoreInitialized){state.scoreInitialized=true;await loadScores(null,true);}
-   const ms=num($('refresh').value,0);if(ms>0)state.timer=setInterval(()=>{if(!state.refreshBusy){state.refreshBusy=true;loadFeed().finally(()=>state.refreshBusy=false)}},ms);
-   saveState();
- }catch(e){$('liveDot').className='live-dot bad';$('liveText').textContent='Feed con error';$('apiStatus').textContent='Error';$('feedMsg').textContent='No se pudo consultar API-Football: '+e.message+' · Prueba primero «Probar API Key».';}
-}
+async function hydrateEventMarkets(m,force=false){if(!m||!m.eventId)return false;const age=m.marketHydratedAt?Date.now()-Date.parse(m.marketHydratedAt):Infinity;if(!force&&age<60000)return true;$('feedMsg').textContent=`Cargando mercados API-Football para ${m.name}…`;try{const j=await v19AF('/odds',{fixture:m.eventId});const ev=v16OddsToOld(j,m.eventId);if(!ev)throw new Error('API-Football no devolvió cuotas para este partido');applyMarketDataToMatch(m,ev);m.marketHydrated=true;m.marketHydratedAt=new Date().toISOString();state.history[m.id]=state.history[m.id]||[];state.history[m.id].push({t:Date.now(),h:m.h,g:m.g,marketOdds:m.marketOdds});state.history[m.id]=state.history[m.id].slice(-60);renderAll();renderDetail(analyzeMatch(m));const c=m.marketCoverage||{};$('feedMsg').textContent=`Mercados API-Football actualizados · HCP ${c.spreads?'sí':'no'} · O/U ${c.totals?'sí':'no'}${quotaText()}`;return true}catch(e){$('feedMsg').textContent='No se pudieron cargar mercados API-Football: '+e.message;return false;}}
 function stopFeed(){clearInterval(state.timer);state.timer=null;$('liveText').textContent='Modo local';$('liveDot').className='live-dot';$('feedMsg').textContent='Actualización del feed detenida.';}
 function teamNorm(x){return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
 function scoreValue(ev,name){const arr=ev?.scores||[];const target=teamNorm(name);const hit=arr.find(z=>teamNorm(z.name)===target);return hit&&hit.score!=null?String(hit.score):null;}
@@ -656,27 +677,7 @@ function mergeScoreData(data){
   }
  }
 }
-async function loadScores(daysFrom=null,silent=false){
- const key=apiKeyValue();const sport=$('sport').value.trim()||'soccer_epl';
- if(!key && !espnSportMap(sport)){if(!silent){$('scoreStatus').textContent='Falta proveedor';$('scoreMsg').textContent='No hay API key y esta liga no tiene proveedor alternativo configurado.';}return}
- if(!silent){$('scoreStatus').textContent=daysFrom===null?'Consultando LIVE + próximos…':'Consultando LIVE + resultados…';$('scoreMsg').textContent='Consultando marcador…';}
- let data=[],provider='API-Football',quota='';
- try{
-  if(!key)throw new Error('NO_KEY');
-  const days=daysFrom===null?null:Math.max(1,Math.min(3,Number(daysFrom)||1));
-  const url=`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/scores/?dateFormat=iso${days!==null?'&daysFrom='+days:''}`;
-  const r=await apiJSON(url);data=Array.isArray(r.data)?r.data:[];state.scoreProvider='API-Football';quota=quotaText();
- }catch(e){
-  try{data=await loadScoresFromESPN(daysFrom,silent);provider='ESPN (respaldo)';}
-  catch(f){if(!silent){$('scoreStatus').textContent='Error';$('scoreMsg').textContent='No se pudieron cargar los marcadores: '+(e.message==='NO_KEY'?'no hay API key y el respaldo tampoco respondió':e.message+' · respaldo: '+f.message);$('liveScores').innerHTML='<div class="empty">No se pudieron cargar los marcadores. '+esc(e.message)+'</div>';}return;}
- }
- mergeScoreData(data);
- const settled=applyAutomaticSettlements();let autoSettled=0;
- if(window.LineScannerAuto?.settleMatch && Array.isArray(data))for(const ev of data){if(!ev.completed)continue;const fh=Number(scoreValue(ev,ev.home_team)),fa=Number(scoreValue(ev,ev.away_team));if(Number.isFinite(fh)&&Number.isFinite(fa))autoSettled+=Number(window.LineScannerAuto.settleMatch(ev.id,ev.home_team,ev.away_team,fh,fa)||0);}
- renderLiveScores(data);renderAll();if(state.selected){const sel=state.matches.find(x=>x.id===state.selected);if(sel)renderDetail(analyzeMatch(sel));}
- const live=data.filter(x=>x.scores&&!x.completed).length,finals=data.filter(x=>x.completed).length;
- if(!silent){$('scoreStatus').textContent=`${live} en vivo · ${finals} finalizados`;$('scoreMsg').textContent=`Marcadores actualizados · ${live} LIVE · ${finals} FINAL · proveedor: ${provider}${quota?' · '+quota:''}${(settled||autoSettled)?' · '+((settled||0)+(autoSettled||0))+' apuestas liquidadas':''} · ${new Date().toLocaleTimeString('es-ES')}`;}
-}
+async function loadScores(daysFrom=null,silent=false){const leagueRaw=$('sport').value.trim()||'39';const league=v16LeagueParam(leagueRaw)||leagueRaw;if(!v19Key()){if(!silent){$('scoreStatus').textContent='Sin API key';$('scoreMsg').textContent='Introduce la API key de API-Football.';}return}if(!silent){$('scoreStatus').textContent=daysFrom===null?'Consultando LIVE + próximos…':'Consultando LIVE + resultados…';$('scoreMsg').textContent='Consultando API-Football…';}try{let data=[];if(daysFrom===null){data=await v19Fixtures({live:'all'});const today=await v19Fixtures({league,season:v19Season(league),date:v19Today()});const seen=new Set();data=[...data,...today].filter(x=>!seen.has(x.id)&&seen.add(x.id));}else{const d=Math.max(1,Math.min(3,Number(daysFrom)||1));for(let i=0;i<=d;i++)data.push(...await v19Fixtures({league,season:v19Season(league),date:v19DateOffset(-i)}));}mergeScoreData(data);const settled=applyAutomaticSettlements();renderLiveScores(data);renderAll();if(state.selected){const sel=state.matches.find(x=>x.id===state.selected);if(sel)renderDetail(analyzeMatch(sel));}const live=data.filter(x=>x.scores&&!x.completed).length,finals=data.filter(x=>x.completed).length;if(!silent){$('scoreStatus').textContent=`${live} en vivo · ${finals} finalizados`;$('scoreMsg').textContent=`API-Football · ${live} LIVE · ${finals} FINAL${settled?' · apuestas liquidadas':''}`;}}catch(e){if(!silent){$('scoreStatus').textContent='Error';$('scoreMsg').textContent='No se pudieron cargar los marcadores: '+e.message;}}}
 function exportJSON(){const payload={exportedAt:nowISO(),journal:state.journal,memory:state.memory,history:state.history,favorites:state.favorites};downloadText(JSON.stringify(payload,null,2),'line_scanner_memory.json','application/json')}
 function downloadText(text,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function exportAnalysis(){const m=state.matches.find(x=>x.id===state.selected);if(!m)return;const r=analyzeMatch(m);downloadText(JSON.stringify({match:m,analysis:{selection:r.selection,confidence:r.confidence,sensitivity:r.sensitivity,quality:r.quality,lambdas:{home:r.lh,away:r.la},risk:r.risk,scores:r.scores.slice(0,10)}},null,2),'analysis_'+Date.now()+'.json','application/json')}
@@ -691,25 +692,7 @@ Milan vs Rival; Milan -0.25 handicap; 2.25 goles
 Benfica vs Rival; Benfica -1 handicap; 2.75 goles`;parseInput() }
 function loadResearchDemo(){$('raw').value=`Celtic vs 0.5-1 Ferencvaros (2.5-3)\nCrystal Palace vs 1-1.5 Lech (3-3.5)\nViktoria Plzen vs USG (3)\nJuventus vs 2 NEC (3-3.5)\nLillestrom vs 0.5-1 Torreense (2.5-3)\nBournemouth vs 0.5 Real Sociedad (3)`;parseInput();}
 function initTabs(){document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.tabpage').forEach(x=>x.classList.add('hidden'));$('tab-'+b.dataset.tab).classList.remove('hidden');if(b.dataset.tab==='memory')drawCalibration()}))}
-async function testApiFootball(){
- const key=apiKeyValue();
- if(!key){$('diagnosticMsg').textContent='⚠️ Escribe la API key en Configuración antes de probarla.';return false;}
- $('feedMsg').textContent='Probando API-Football directamente…';$('apiStatus').textContent='Probando…';
- try{
-   const j=await v16Fetch('/countries');
-   const n=Array.isArray(j.response)?j.response.length:0;
-   $('apiStatus').textContent='API-Football OK · clave '+key.length+' caracteres';
-   $('feedMsg').textContent=`✅ API key válida · conexión directa OK · ${n} países disponibles${quotaText()}`;
-   $('diagnosticMsg').textContent='✅ La clave fue aceptada por API-Football. Ahora puedes pulsar «Conectar y verificar».';
-   return true;
- }catch(e){
-   $('apiStatus').textContent='API-Football con error';
-   const msg=String(e.message||e);
-   $('feedMsg').textContent='❌ '+msg;
-   $('diagnosticMsg').textContent='❌ Prueba de API-Football fallida: '+msg;
-   return false;
- }
-}
+async function testApiFootball(){return v19TestKey();}
 function runDiagnostics(){const tests=[],a=asianParts(parseRangeToken('0.5-1')),b=asianParts(parseRangeToken('-0.75'));tests.push(['+0.5/+1',a.length===2&&a[0]===.5&&a[1]===1]);tests.push(['-0.75',b.length===2&&b[0]===-1&&b[1]===-.5]);const f={home:'A',away:'B',completed:true,finalHome:1,finalAway:1},o={home:'A',away:'B',completed:true,finalHome:2,finalAway:1};tests.push(['HCP +0.5/+1 empate = WIN',settleHandicap(f,[.5,1],'away').status==='win']);const l={home:'A',away:'B',completed:true,finalHome:2,finalAway:1};tests.push(['HCP +0.5/+1 pierde por 1 = ½ LOSS',settleHandicap(l,[.5,1],'away').status==='half-loss']);const hm={home:'A',away:'B',completed:true,finalHome:2,finalAway:1};tests.push(['HCP -0.5/-1 gana por 1 = ½ WIN',settleHandicap(hm,[-1,-.5],'home').status==='half-win']);tests.push(['Over 2.5/3 con 3',settleTotal(o,[2.5,3],'over').status==='half-win']);tests.push(['Under 3/3.5 con 3',settleTotal(o,[3,3.5],'under').status==='half-win']);tests.push(['Parser Real Madrid 🆚 Atlet Madrid+0.5 (3)',(()=>{const p=window.__s01DiagParse?window.__s01DiagParse('Real Madrid 🆚 Atlet Madrid+0.5 (3)'):null;return !!p&&p.home==='Real Madrid'&&p.away==='Atlet Madrid'&&p.hcp&&p.hcp.mid===0.5&&p.goals&&p.goals.mid===3})()]);tests.push(['API-Football base HTTPS',/^https:\/\/v3\.football\.api-sports\.io\//.test('https://v3.football.api-sports.io/fixtures')]);tests.push(['Clave no guardada',!Object.keys(localStorage).some(k=>String(localStorage.getItem(k)||'').includes(($('apiKey')?.value||'__NO_KEY__')))]);const bad=tests.filter(x=>!x[1]);$('diagnosticMsg').textContent=(bad.length?'⚠️ ':'✅ ')+'Diagnóstico '+(tests.length-bad.length)+'/'+tests.length+' pruebas correctas'+(bad.length?' · '+bad.map(x=>x[0]).join(' · '):'');return !bad.length;}
 
 /* ===================== V16 API-FOOTBALL ADAPTER =====================
@@ -821,7 +804,7 @@ async function apiJSON(url){
 }
 /* =================== END V16 API-FOOTBALL ADAPTER =================== */
 
-$('scan').addEventListener('click',parseInput);$('demo').addEventListener('click',loadDemo);$('researchDemo').addEventListener('click',loadResearchDemo);$('clear').addEventListener('click',()=>{$('raw').value='';state.matches=[];state.selected=null;$('detail').style.display='none';renderAll()});$('filter').addEventListener('change',renderList);$('sort').addEventListener('change',renderList);$('savePick').addEventListener('click',savePick);$('snapshot').addEventListener('click',snapshotSelected);$('refreshWeb').addEventListener('click',refreshWebSnapshot);$('exportOne').addEventListener('click',exportAnalysis);$('loadSports').addEventListener('click',getSports);$('loadFeed').addEventListener('click',loadFeed);$('loadLiveScores').addEventListener('click',()=>loadScores(null));$('loadRecentScores').addEventListener('click',()=>{state.lastRecentCheck=Date.now();loadScores(1)});$('stopFeed').addEventListener('click',stopFeed);$('exportMemory').addEventListener('click',exportJSON);$('importMemory').addEventListener('click',()=>$('memoryFile').click());$('memoryFile').addEventListener('change',e=>{if(e.target.files[0])importJSON(e.target.files[0])});$('resetMemory').addEventListener('click',()=>{if(confirm('Borrar memoria y patrones?')){state.memory={records:[]};saveState();renderAll()}});$('clearJournal').addEventListener('click',resetJournal);$('calcProps').addEventListener('click',calcProps);$('diagnostics').addEventListener('click',runDiagnostics);$('testApiFootball').addEventListener('click',testApiFootball);initTabs();loadState();
+$('scan').addEventListener('click',parseInput);$('demo').addEventListener('click',loadDemo);$('researchDemo').addEventListener('click',loadResearchDemo);$('clear').addEventListener('click',()=>{$('raw').value='';state.matches=[];state.selected=null;$('detail').style.display='none';renderAll()});$('filter').addEventListener('change',renderList);$('sort').addEventListener('change',renderList);$('savePick').addEventListener('click',savePick);$('snapshot').addEventListener('click',snapshotSelected);$('refreshWeb').addEventListener('click',refreshWebSnapshot);$('exportOne').addEventListener('click',exportAnalysis);$('loadSports').addEventListener('click',getSports);$('loadFeed').addEventListener('click',loadFeed);$('loadLiveScores').addEventListener('click',()=>loadScores(null));$('loadRecentScores').addEventListener('click',()=>{state.lastRecentCheck=Date.now();loadScores(1)});$('stopFeed').addEventListener('click',stopFeed);$('exportMemory').addEventListener('click',exportJSON);$('importMemory').addEventListener('click',()=>$('memoryFile').click());$('memoryFile').addEventListener('change',e=>{if(e.target.files[0])importJSON(e.target.files[0])});$('resetMemory').addEventListener('click',()=>{if(confirm('Borrar memoria y patrones?')){state.memory={records:[]};saveState();renderAll()}});$('clearJournal').addEventListener('click',resetJournal);$('calcProps').addEventListener('click',calcProps);$('diagnostics').addEventListener('click',runDiagnostics);$('testApiFootball').addEventListener('click',testApiFootball); $('apiKey')?.addEventListener('input',()=>{ $('apiStatus').textContent='Clave introducida · '+v19Key().length+' caracteres'; });initTabs();loadState();
 $('manualAnalyze')?.addEventListener('click',manualAnalyze);
 $('manualClear')?.addEventListener('click',()=>{['manualHome','manualAway','manualHcp','manualHcpOdds','manualTotal','manualOverOdds','manualUnderOdds','manualHGF','manualHGA','manualAGF','manualAGA','manualXGH','manualXGA','manualFinalH','manualFinalA'].forEach(id=>{if($(id))$(id).value=''});$('manualResult').innerHTML='';$('manualSettleResult').innerHTML='';});
 $('manualSettle')?.addEventListener('click',manualSettle);
@@ -1343,31 +1326,13 @@ document.addEventListener("DOMContentLoaded",()=>{
     return bs>=150?best:null;
   }
 
-  async function s01bFetchEvents(sport){
-    const key=apiKeyValue();
-    if(!key) throw new Error('Falta la API key. Configúrala en Configuración para consultar datos web.');
-    const region=$('region')?.value||'eu';
-    const url=`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/events?apiKey=${encodeURIComponent(key)}&dateFormat=iso`;
-    const {data}=await apiJSON(url);
-    return Array.isArray(data)?data:[];
+  async function s01bFetchEvents(sport){ const league=v16LeagueParam(sport)||$('sport')?.value||39; return await v19Fixtures({league,season:v19Season(league),date:v19Today()});
   }
 
-  async function s01bFetchEventOdds(sport,eventId){
-    const key=apiKeyValue();
-    const region=$('region')?.value||'eu';
-    const url=`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/events/${encodeURIComponent(eventId)}/odds?apiKey=${encodeURIComponent(key)}&regions=${encodeURIComponent(region)}&markets=h2h,spreads,totals&oddsFormat=decimal`;
-    const {data}=await apiJSON(url);
-    return Array.isArray(data)?(data[0]||null):data;
+  async function s01bFetchEventOdds(sport,eventId){ const j=await v19AF('/odds',{fixture:eventId}); return v16OddsToOld(j,eventId);
   }
 
-  async function s01bFetchScores(sport){
-    const key=apiKeyValue();
-    if(!key) return [];
-    const url=`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/scores/?apiKey=${encodeURIComponent(key)}&daysFrom=1&dateFormat=iso`;
-    try{
-      const {data}=await apiJSON(url);
-      return Array.isArray(data)?data:[];
-    }catch(_){return [];}
+  async function s01bFetchScores(sport){ const league=v16LeagueParam(sport)||$('sport')?.value||39; try{return await v19Fixtures({league,season:v19Season(league),date:v19Today()});}catch(_){return [];}
   }
 
   function s01bApplyUserLine(m,item){
@@ -1493,7 +1458,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   async function v12GetSoccerSports(force=false){
     const now=Date.now();
     if(!force&&S01B.cache.sports&&now-S01B.cache.sportsAt<10*60*1000)return S01B.cache.sports;
-    const {data}=await apiJSON('https://api.the-odds-api.com/v4/sports/');
+    const {data}=await apiJSON('https://v3.football.api-sports.io/fixtures');
     const all=Array.isArray(data)?data:[];
     const soccer=all.filter(s=>String(s.group||'').toLowerCase().includes('soccer')||String(s.key||'').toLowerCase().startsWith('soccer_'));
     const preferred=$('sport')?.value?.trim();
@@ -1567,7 +1532,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   }
 
   async function v12FetchRecentScores(sport,days=3){
-    const url=`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/scores/?daysFrom=${Math.max(1,Math.min(3,Number(days)||3))}&dateFormat=iso`;
+    const url=`https://v3.football.api-sports.io/fixtures${encodeURIComponent(sport)}/scores/?daysFrom=${Math.max(1,Math.min(3,Number(days)||3))}&dateFormat=iso`;
     const {data}=await apiJSON(url);
     return Array.isArray(data)?data:[];
   }
