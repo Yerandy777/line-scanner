@@ -1,0 +1,21 @@
+LINE SCANNER PRO — REVISION V10
+Fecha: 2026-09-22
+
+SCANNER 01 — AUTOMÁTICO MULTICOMPETICIÓN
+- El usuario puede pegar uno o muchos partidos.
+- El hándicap y la línea de goles son variables y se conservan exactamente como fueron introducidos.
+- El ejemplo +0.5 (3) NO es un valor fijo.
+- El sistema descubre las competiciones de fútbol disponibles mediante /sports.
+- Cada partido se intenta resolver automáticamente en la competición correspondiente.
+- Se consulta el evento y, cuando está disponible, sus mercados h2h, spreads y totals.
+- No se fabrican xG, H2H, alineaciones ni cuotas.
+- Si un partido no se encuentra, se marca como NO ENCONTRADO/PARCIAL.
+
+RESULTADOS
+- /scores se usa para marcadores y partidos recientes.
+- La cobertura de resultados depende del proveedor y de la competición.
+- Se mantienen los límites del proveedor; no se realizan consultas históricas de cuotas como si fueran gratuitas.
+
+SEGURIDAD
+- La API key se introduce localmente.
+- La clave no se incluye en este paquete ni en el código.
