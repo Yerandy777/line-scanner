@@ -1,0 +1,29 @@
+LINE SCANNER PRO — V10 GITHUB READY · VISUAL + MULTI-API
+Fecha: 2026-09-22
+
+CAMBIO PRINCIPAL
+- Nuevo dashboard de apertura basado en la referencia visual Design 3 entregada por el usuario.
+- Mantiene el motor de análisis existente, Scanner 01, liquidación asiática, memoria, calibración y resultados finales.
+- Nueva gestión visual de fuentes:
+  1) The Odds API
+  2) RapidAPI (Fútbol)
+  3) RapidAPI (Odds/Betting)
+- Las API keys NO se guardan en localStorage ni se incluyen en el paquete.
+- Los hosts y rutas de RapidAPI sí pueden guardarse localmente para no repetir configuración.
+- Scanner 01 intenta conservar la línea introducida por el usuario y usa las fuentes web como contexto.
+- Si una fuente no entrega un dato, se marca como no disponible; no se inventan xG, H2H, alineaciones, cuotas o resultados.
+- Se conserva el descubrimiento automático de competiciones de The Odds API de V10.
+- RapidAPI se integra mediante host + endpoint configurables porque cada API de RapidAPI puede tener rutas distintas.
+
+RAPIDAPI
+- Campo Key: solo memoria de sesión.
+- Host: formato nombre-api.p.rapidapi.com.
+- Endpoint: admite variables {home}, {away}, {eventId}, {date}, {sport}, {league}.
+- El adaptador intenta normalizar respuestas comunes: response/data/events/matches/fixtures/results.
+- Se mantiene un contador local de solicitudes realizadas por la aplicación; no sustituye el contador oficial de RapidAPI.
+
+IMPORTANTE
+- No pegar API keys dentro de GitHub.
+- The Odds API sigue siendo la fuente principal de cuotas/mercados cuando está configurada.
+- La disponibilidad real de RapidAPI depende del endpoint y del plan/API que el usuario tenga suscrito.
+- La aplicación no garantiza resultados ni predicciones; presenta datos y cálculos del motor.

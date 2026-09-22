@@ -1,0 +1,26 @@
+LINE SCANNER PRO — V11 GITHUB READY · AUTO SCANNER 01
+Fecha: 2026-09-22
+
+CAMBIO PRINCIPAL
+- Scanner 01 ya no depende de la liga seleccionada para resolver manualmente los partidos.
+- Usa el motor de descubrimiento automático de V10 para recorrer las competiciones de fútbol disponibles y buscar el par de equipos.
+- Si no aparece como próximo/en vivo, V11 busca automáticamente en resultados recientes de hasta 3 días mediante The Odds API.
+- Si RapidAPI Fútbol está configurada, también sirve como fuente alternativa de resolución/enriquecimiento.
+- Las líneas introducidas por el usuario se conservan exactamente y se vuelven a aplicar después de cada enriquecimiento web.
+
+MONITORIZACIÓN AUTOMÁTICA
+- Después de “Analizar con datos web”, Scanner 01 inicia monitorización cada 30 segundos.
+- Para partidos resueltos con The Odds API consulta marcador LIVE/FINAL por eventId.
+- Cuando aparece un resultado final, actualiza finalHome/finalAway y ejecuta la liquidación automática de registros pendientes.
+- Si The Odds API no está configurada y RapidAPI Fútbol sí lo está, intenta refrescar RapidAPI como respaldo.
+
+FUENTES
+- The Odds API: descubrimiento de deportes, eventos, cuotas y marcadores recientes.
+- RapidAPI: configurable por Host + Endpoint; requiere X-RapidAPI-Key y X-RapidAPI-Host.
+- Las claves no se incluyen en GitHub ni se guardan en localStorage.
+
+LIMITACIONES REALES
+- “100 % automática” depende de que al menos una fuente configurada entregue el partido y permita solicitudes desde el navegador.
+- La cobertura de resultados finalizados de The Odds API depende de los deportes/ligas cubiertos por su endpoint de scores.
+- RapidAPI requiere un Host/Endpoint válido para la API concreta que el usuario haya elegido.
+- El sistema no garantiza predicciones, cuotas ni resultados; sólo automatiza la consulta, análisis y liquidación cuando los datos están disponibles.
