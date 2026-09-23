@@ -1594,6 +1594,47 @@ function bind(){
  document.querySelectorAll('[data-s01v22-detail]').forEach(b=>b.onclick=()=>{const r=DB[+b.dataset.s01v22Detail],a=predictionOf(r);alert(advancedInsight(r,a).map(x=>x.replace(/<[^>]+>/g,'')).join('\n\n'));});
  document.querySelectorAll('[data-s01v22-webone]').forEach(b=>b.onclick=async()=>{const i=+b.dataset.s01v22Webone,r=DB[i];const st=document.getElementById('s01v22Status');if(st)st.textContent=`Actualizando ${r.home} vs ${r.away}…`;try{await fetchResult(r);if(st)st.textContent=`${r.apiStatusLabel}: ${r.final?`marcador ${r.final.h}-${r.final.a}`:(r.liveScore?`marcador ${r.liveScore.h}-${r.liveScore.a}`:'sin marcador todavía')}. Seguimiento automático activo.`;s01StartLiveMonitor();}catch(e){if(st)st.textContent=e.message;}});
 }
+function s01StatusInfo(f){
+ const code=String(f?.fixture?.status?.short||'').toUpperCase();
+ const elapsed=f?.fixture?.status?.elapsed ?? null;
+ const labels={NS:'POR JUGAR',TBD:'POR CONFIRMAR','1H':'EN VIVO - 1A PARTE',HT:'DESCANSO','2H':'EN VIVO - 2A PARTE',ET:'EN VIVO - PRORROGA',BT:'DESCANSO - PRORROGA',P:'PENALTIS',FT:'FINALIZADO',AET:'FINALIZADO - PRORROGA',PEN:'FINALIZADO - PENALTIS',PST:'APLAZADO',CANC:'CANCELADO',ABD:'ABANDONADO',SUSP:'SUSPENDIDO'};
+ const finished=['FT','AET','PEN'].includes(code);
+ const live=['1H','2H','ET','P','BT'].includes(code);
+ return {code:code||'UNKNOWN',label:labels[code]||f?.fixture?.status?.long||'ESTADO DESCONOCIDO',elapsed,finished,live};
+}
+function s01ScoreOf(f){
+ const g=f?.goals||{};
+ const candidates=[
+  [g.home,g.away],
+  [f?.score?.fulltime?.home,f?.score?.fulltime?.away],
+  [f?.score?.current?.home,f?.score?.current?.away],
+  [f?.score?.halftime?.home,f?.score?.halftime?.away]
+ ];
+ for(const [h,a] of candidates){if(Number.isFinite(Number(h))&&Number.isFinite(Number(a)))return {h:Number(h),a:Number(a)};}
+ return {h:null,a:null};
+}
+function s01NameScore(name){return norm(String(name||'')) .replace(/[^a-z0-9]+/g,'');}
+function s01NameMatch(a,b){
+ const x=s01NameScore(a),y=s01NameScore(b);
+ if(!x||!y)return false;
+ return x===y || x.includes(y) || y.includes(x);
+}
+function s01BestFixture(fs,r){
+ const arr=Array.isArray(fs)?fs:[];let best=null,bestScore=-1;
+ for(const f of arr){
+  const hn=f?.teams?.home?.name, an=f?.teams?.away?.name;
+  if(!hn||!an)continue;
+  let score=0;
+  if(s01NameMatch(hn,r.home))score+=50;
+  if(s01NameMatch(an,r.away))score+=50;
+  if(s01NameMatch(hn,r.away))score-=80;
+  if(s01NameMatch(an,r.home))score-=80;
+  if(r.date&&String(f?.fixture?.date||'').slice(0,10)===r.date)score+=20;
+  if(score>bestScore){bestScore=score;best=f;}
+ }
+ return bestScore>=100?best:null;
+}
+
 async function s01TeamId(name){
  const q=await V20_fetch('/teams',{search:String(name)});const arr=q.response||[];if(!arr.length)return null;
  const nn=norm(name);arr.sort((a,b)=>{const an=norm(a.team?.name),bn=norm(b.team?.name);return (an===nn?0:an.includes(nn)||nn.includes(an)?1:2)-(bn===nn?0:bn.includes(nn)||nn.includes(bn)?1:2)});
@@ -1635,7 +1676,7 @@ async function s01RefreshLive(){
  const live=DB.filter(r=>r.fixtureId && ['NS','TBD','1H','HT','2H','ET','BT','P'].includes(r.apiStatus));
  if(!live.length)return;
  const ids=live.map(r=>r.fixtureId).slice(0,20).join('-');
- try{const q=await V20_fetch('/fixtures',{ids});for(const f of (q.response||[])){const r=live.find(x=>x.fixtureId===f.fixture?.id);if(!r)continue;const info=s01StatusInfo(f),sc=s01ScoreOf(f);r.apiStatus=info.code;r.apiStatusLabel=info.label;r.elapsed=info.elapsed??null;r.lastCheckedAt=new Date().toISOString();r.liveScore={h:sc.h,a:sc.a};if(info.finished&&Number.isFinite(sc.h)&&Number.isFinite(sc.a)){r.final={h:sc.h,a:sc.a};r.settlement=settle(r,r.final);r.resolvedAt=new Date().toISOString();}}save();render();}catch(_){ }
+ try{const q=await V20_fetch('/fixtures',{ids});for(const f of (q.response||[])){const r=live.find(x=>x.fixtureId===f.fixture?.id);if(!r)continue;const info=s01StatusInfo(f),sc=s01ScoreOf(f);r.apiStatus=info.code;r.apiStatusLabel=info.label;r.elapsed=info.elapsed??null;r.lastCheckedAt=new Date().toISOString();r.liveScore={h:sc.h,a:sc.a};if(info.finished&&Number.isFinite(sc.h)&&Number.isFinite(sc.a)){r.final={h:sc.h,a:sc.a};r.settlement=settle(r,r.final);r.resolvedAt=new Date().toISOString();}}save();render();}catch(e){ const st=document.getElementById('s01v22Status'); if(st)st.textContent='Actualización automática: '+(e?.message||'error desconocido'); }
 }
 let s01LiveTimer=null;
 function s01StartLiveMonitor(){clearInterval(s01LiveTimer);s01LiveTimer=setInterval(s01RefreshLive,15000);s01RefreshLive();}
