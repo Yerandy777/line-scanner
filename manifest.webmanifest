@@ -1,11 +1,11 @@
 {
   "name":"Line Scanner Pro",
   "short_name":"Line Scanner Pro",
-  "start_url":"./index.html",
+  "start_url":"./",
   "display":"standalone",
+  "orientation":"portrait",
   "background_color":"#020813",
   "theme_color":"#03111f",
-  "orientation":"portrait",
-  "description":"Multi-deporte, Scanner 01, análisis, resultados y estadísticas.",
+  "description":"Multi-deporte, resultados en vivo, Scanner 01, análisis y estadísticas.",
   "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
 }
