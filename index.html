@@ -1537,14 +1537,81 @@ function renderStats(){
  const p=document.getElementById('patternInsights');if(p)p.innerHTML=DB.length?advancedInsight(DB[0],analyze(DB[0])).map(x=>`<div class="notice">${x}</div>`).join('')+'<div class="notice">El análisis de patrones se recalcula con tu propia muestra. No se presenta como una garantía ni como una probabilidad de ganar una apuesta.</div>':'<div class="empty">Agrega y resuelve partidos desde Scanner 01 para empezar a detectar patrones.</div>';
  const jt=document.getElementById('journalTable');if(jt)jt.innerHTML=DB.slice(0,100).map(r=>`<tr><td>${escS(new Date(r.createdAt).toLocaleDateString('es-ES'))}</td><td>${escS(r.home)} vs ${escS(r.away)}</td><td>Scanner 01</td><td>${escS(r.goals?.text||r.hcp?.text||'—')}</td><td>${r.goals?pctS(analyze(r).over):'—'}</td><td>Propia</td><td>${r.final?'RESUELTO':'ABIERTO'}</td><td>${r.settlement?escS(JSON.stringify(r.settlement)):'—'}</td><td>—</td><td>Scanner 01</td></tr>`).join('');
 }
-function card(r,idx){const a=analyze(r);const res=r.final?settle(r,r.final):null;const cls=a.confidence>=70?'s01v21-good':a.confidence>=45?'s01v21-neutral':'s01v21-warn';return `<div class="s01v21-card"><div class="row"><div><h3>${escS(r.home)} <span class="muted">vs</span> ${escS(r.away)}</h3><div class="s01v21-meta">${r.date?`Fecha ${escS(r.date)} · `:''}${r.hcp?`HCP ${escS(r.hcp.text)} · ${r.side==='away'?escS(r.away):escS(r.home)}`:''}${r.goals?` · Goles ${escS(r.goals.text)}`:''}${r.odds?` · Cuota ${escS(r.odds.a+(r.odds.b!==r.odds.a?'/'+r.odds.b:''))}`:''}</div></div><span class="s01v21-badge ${cls}">${escS(a.signal)}</span></div><div class="s01v21-kpis"><div class="s01v21-kpi"><small>OVER</small><b>${pctS(a.over)}</b></div><div class="s01v21-kpi"><small>UNDER</small><b>${pctS(a.under)}</b></div><div class="s01v21-kpi"><small>MUESTRA</small><b>${a.hist.all.length}</b></div><div class="s01v21-kpi"><small>CONFIANZA</small><b>${a.confidence}/100</b></div></div>${r.odds?`<div class="s01v21-section"><b>Precio de tu línea:</b> ${escS(r.odds.a)} · prob. implícita ${pctS(a.implied)}${r.odds.b!==r.odds.a?` · lado contrario ${escS(r.odds.b)}`:''}</div>`:''}${r.final?`<div class="s01v21-section"><b>Resultado:</b> ${r.final.h}-${r.final.a} · total ${res.total} · O/U ${escS(res.ou||'—')} ${res.hc?`· HCP ${escS(res.hc)}`:''}</div>`:''}<div class="s01v21-section">${advancedInsight(r,a).map(x=>`<div class="s01v21-insight">${x}</div>`).join('')}</div><div class="s01v21-toolbar"><button class="secondary" data-s01v21-score="${idx}">${r.final?'Cambiar resultado':'Registrar resultado'}</button><button class="secondary" data-s01v21-detail="${idx}">Ver detalle</button></div><div id="s01v21-score-${idx}" class="s01v21-section s01v21-hidden"><div class="s01v21-score"><input id="s01v21-h-${idx}" type="number" min="0" step="1" placeholder="Goles local"><input id="s01v21-a-${idx}" type="number" min="0" step="1" placeholder="Goles visitante"></div><button class="primary full" data-s01v21-save="${idx}">Guardar marcador</button></div></div>`;}
+function card(r,idx){
+ const a=analyze(r),res=r.final?settle(r,r.final):null;
+ const cls=a.confidence>=70?'s01v21-good':a.confidence>=45?'s01v21-neutral':'s01v21-warn';
+ const st=r.apiStatusLabel||'NO CONSULTADO';
+ const score=r.liveScore&&Number.isFinite(r.liveScore.h)&&Number.isFinite(r.liveScore.a)?`${r.liveScore.h}-${r.liveScore.a}`:'—';
+ const pred=r.goals?(a.over>=.5?'OVER '+r.goals.text:'UNDER '+r.goals.text):r.hcp?(a.hcpProb>=.5?'HÁNDICAP · '+r.hcp.text:'HÁNDICAP · lado contrario'):'SIN MERCADO';
+ return `<div class="s01v21-card">
+ <div class="row"><div><h3>${escS(r.home)} <span class="muted">vs</span> ${escS(r.away)}</h3><div class="s01v21-meta">${r.date?`Fecha ${escS(r.date)} · `:''}${r.hcp?`HCP ${escS(r.hcp.text)} · ${r.side==='away'?escS(r.away):escS(r.home)}`:''}${r.goals?` · Goles ${escS(r.goals.text)}`:''}${r.odds?` · Cuota ${escS(r.odds.a+(r.odds.b!==r.odds.a?'/'+r.odds.b:''))}`:''}</div></div><span class="s01v21-badge ${cls}">${escS(a.signal)}</span></div>
+ <div class="s01v21-kpis"><div class="s01v21-kpi"><small>ESTADO</small><b>${escS(st)}</b></div><div class="s01v21-kpi"><small>MARCADOR</small><b>${escS(score)}</b></div><div class="s01v21-kpi"><small>NUESTRA LECTURA</small><b>${escS(pred)}</b></div><div class="s01v21-kpi"><small>CONFIANZA</small><b>${a.confidence}/100</b></div></div>
+ ${r.apiMatch?`<div class="s01v21-section"><b>Partido encontrado:</b> ${escS(r.apiMatch.home)} vs ${escS(r.apiMatch.away)} · ID ${escS(r.fixtureId||'—')} ${r.elapsed!=null?`· minuto ${escS(r.elapsed)}`:''}</div>`:''}
+ ${r.odds?`<div class="s01v21-section"><b>Precio de tu línea:</b> ${escS(r.odds.a)} · prob. implícita ${pctS(a.implied)}${r.odds.b!==r.odds.a?` · lado contrario ${escS(r.odds.b)}`:''}</div>`:''}
+ <div class="s01v21-section"><b>Predicción antes del resultado:</b> ${escS(pred)} · Over ${pctS(a.over)} · Under ${pctS(a.under)}${a.hcpProb!=null?` · HCP ${pctS(a.hcpProb)}`:''}</div>
+ ${r.final?`<div class="s01v21-section"><b>Resultado real:</b> ${r.final.h}-${r.final.a} · ${res.total} goles · ${res.ou?`O/U ${escS(res.ou)}`:''}${res.hc?` · HCP ${escS(res.hc)}`:''}<br><b>Comparación:</b> ${s01OutcomeText(r,a,res)}</div>`:`<div class="s01v21-section"><b>Comparación:</b> todavía no hay marcador final; la predicción queda abierta hasta que termine.</div>`}
+ <div class="s01v21-section">${advancedInsight(r,a).map(x=>`<div class="s01v21-insight">${x}</div>`).join('')}</div>
+ <div class="s01v21-toolbar"><button class="primary" data-s01v21-webone="${idx}">🌐 Buscar estado / resultado</button><button class="secondary" data-s01v21-score="${idx}">${r.final?'Cambiar resultado':'Registrar resultado manual'}</button><button class="secondary" data-s01v21-detail="${idx}">Ver análisis completo</button></div>
+ <div id="s01v21-score-${idx}" class="s01v21-section s01v21-hidden"><div class="s01v21-score"><input id="s01v21-h-${idx}" type="number" min="0" step="1" placeholder="Goles local"><input id="s01v21-a-${idx}" type="number" min="0" step="1" placeholder="Goles visitante"></div><button class="primary full" data-s01v21-save="${idx}">Guardar marcador</button></div>
+ </div>`;
+}
+function s01OutcomeText(r,a,res){
+ const out=[];
+ if(r.goals){const p=a.over>=.5?'O':'U';const actual=res.ou;out.push(`predicción ${p} → resultado ${actual||'—'} · ${actual===p?'ACIERTO':actual==='P'?'PUSH':'FALLO'}`);}
+ if(r.hcp){const hp=a.hcpProb>=.5?'W':'L',actual=res.hc;out.push(`hándicap esperado ${hp} → ${actual||'—'} · ${actual===hp?'ACIERTO':actual==='P'?'PUSH':'FALLO'}`);}
+ return out.join(' · ')||'sin mercado evaluable';
+}
 function render(){const root=document.getElementById('s01v21Results');if(root)root.innerHTML=DB.slice(0,100).map(card).join('')||'<div class="empty">Aún no hay análisis. Pega tus líneas arriba.</div>';renderIA();renderStats();bind();}
-function bind(){document.querySelectorAll('[data-s01v21-score]').forEach(b=>b.onclick=()=>document.getElementById('s01v21-score-'+b.dataset.s01v21Score)?.classList.toggle('s01v21-hidden'));document.querySelectorAll('[data-s01v21-save]').forEach(b=>b.onclick=()=>{const i=+b.dataset.s01v21Save,r=DB[i];const h=+document.getElementById('s01v21-h-'+i).value,a=+document.getElementById('s01v21-a-'+i).value;if(!Number.isInteger(h)||!Number.isInteger(a)||h<0||a<0)return; r.final={h,a};r.settlement=settle(r,r.final);r.resolvedAt=new Date().toISOString();save();render();});document.querySelectorAll('[data-s01v21-detail]').forEach(b=>b.onclick=()=>{const r=DB[+b.dataset.s01v21Detail],a=analyze(r);alert(advancedInsight(r,a).map(x=>x.replace(/<[^>]+>/g,'')).join('\n\n'));});}
+function bind(){
+ document.querySelectorAll('[data-s01v21-score]').forEach(b=>b.onclick=()=>document.getElementById('s01v21-score-'+b.dataset.s01v21Score)?.classList.toggle('s01v21-hidden'));
+ document.querySelectorAll('[data-s01v21-save]').forEach(b=>b.onclick=()=>{const i=+b.dataset.s01v21Save,r=DB[i];const h=+document.getElementById('s01v21-h-'+i).value,a=+document.getElementById('s01v21-a-'+i).value;if(!Number.isInteger(h)||!Number.isInteger(a)||h<0||a<0)return;r.final={h,a};r.liveScore={h,a};r.apiStatus='FT';r.apiStatusLabel='FINALIZADO · MANUAL';r.settlement=settle(r,r.final);r.resolvedAt=new Date().toISOString();save();render();});
+ document.querySelectorAll('[data-s01v21-detail]').forEach(b=>b.onclick=()=>{const r=DB[+b.dataset.s01v21Detail],a=analyze(r);alert(advancedInsight(r,a).map(x=>x.replace(/<[^>]+>/g,'')).join('\n\n'));});
+ document.querySelectorAll('[data-s01v21-webone]').forEach(b=>b.onclick=async()=>{const i=+b.dataset.s01v21Webone,r=DB[i];const st=document.getElementById('s01v21Status');if(st)st.textContent=`Buscando ${r.home} vs ${r.away}…`;try{const f=await fetchResult(r);if(st)st.textContent=`${r.apiStatusLabel}: ${r.final?`marcador ${r.final.h}-${r.final.a}`:'sin marcador final todavía'}.`;s01StartLiveMonitor();}catch(e){if(st)st.textContent=e.message;}});
+}
+async function s01TeamId(name){
+ const q=await V20_fetch('/teams',{search:String(name)});const arr=q.response||[];if(!arr.length)return null;
+ const nn=norm(name);arr.sort((a,b)=>{const an=norm(a.team?.name),bn=norm(b.team?.name);return (an===nn?0:an.includes(nn)||nn.includes(an)?1:2)-(bn===nn?0:bn.includes(nn)||nn.includes(bn)?1:2)});
+ return arr[0]?.team?.id||null;
+}
 async function fetchResult(r){
- // API-Football is optional: Scanner 01 never changes the user-entered line. It only attempts to find a historical/current result.
  if(!window.V20_fetch)throw new Error('Motor API-Football no disponible en esta versión.');
- const date=r.date||''; if(!date)throw new Error('Sin fecha: para buscar un resultado histórico de forma segura añade la fecha al registro.');
- const q=await V20_fetch('/fixtures',{date:String(date).slice(0,10),timezone:'UTC'});const fs=q.response||[];let best=null,score=-1;for(const f of fs){const h=norm(f.teams?.home?.name),a=norm(f.teams?.away?.name),hh=norm(r.home),aa=norm(r.away);let s=(h===hh?50:h.includes(hh)||hh.includes(h)?35:0)+(a===aa?50:a.includes(aa)||aa.includes(a)?35:0);if(s>score){score=s;best=f;}}if(!best||score<70)throw new Error('No se encontró un partido con coincidencia suficiente en esa fecha.');const fh=best.goals?.home,fa=best.goals?.away;if(!Number.isFinite(fh)||!Number.isFinite(fa))throw new Error('El partido encontrado todavía no tiene marcador final.');r.final={h:fh,a:fa};r.resolvedAt=new Date().toISOString();r.settlement=settle(r,r.final);save();render();return best;}
+ // 1) Primero buscamos hoy: sirve para POR JUGAR, EN JUEGO y FINALIZADO.
+ const today=new Date().toISOString().slice(0,10);
+ let q=await V20_fetch('/fixtures',{date:r.date||today,timezone:'UTC'});
+ let best=s01BestFixture(q.response||[],r);
+ // 2) Si el usuario dio fecha, la fecha es la prioridad absoluta.
+ // 3) Sin fecha, buscamos el ID de ambos equipos y consultamos próximos/últimos partidos.
+ if(!best && !r.date){
+   const ids=await Promise.all([s01TeamId(r.home),s01TeamId(r.away)]);
+   const hid=ids[0],aid=ids[1];
+   if(hid){
+     const [next,last]=await Promise.all([
+       V20_fetch('/fixtures',{team:hid,next:10}),
+       V20_fetch('/fixtures',{team:hid,last:20})
+     ]);
+     best=s01BestFixture([...(next.response||[]),...(last.response||[])],r);
+     if(!best && aid){
+       const both=(next.response||[]).concat(last.response||[]).filter(f=>f.teams?.away?.id===aid||f.teams?.home?.id===aid);
+       best=s01BestFixture(both,r);
+     }
+   }
+ }
+ if(!best)throw new Error('No encontré una coincidencia fiable. Si es un partido histórico, añade la fecha YYYY-MM-DD para ampliar la búsqueda.');
+ const info=s01StatusInfo(best),sc=s01ScoreOf(best);
+ r.fixtureId=best.fixture?.id||null;r.apiStatus=info.code;r.apiStatusLabel=info.label;r.elapsed=info.elapsed??null;r.apiDate=best.fixture?.date||null;r.lastCheckedAt=new Date().toISOString();r.apiMatch={home:best.teams?.home?.name,away:best.teams?.away?.name};
+ if(Number.isFinite(sc.h)&&Number.isFinite(sc.a)){r.liveScore={h:sc.h,a:sc.a};if(info.finished){r.final={h:sc.h,a:sc.a};r.resolvedAt=new Date().toISOString();r.settlement=settle(r,r.final);}}
+ // Preserve the user's original line exactly; API data only supplies state/result/context.
+ save();render();return best;
+}
+async function s01RefreshLive(){
+ if(!window.V20_fetch)return;
+ const live=DB.filter(r=>r.fixtureId && ['1H','HT','2H','ET','BT','P'].includes(r.apiStatus));
+ if(!live.length)return;
+ const ids=live.map(r=>r.fixtureId).slice(0,20).join('-');
+ try{const q=await V20_fetch('/fixtures',{ids});for(const f of (q.response||[])){const r=live.find(x=>x.fixtureId===f.fixture?.id);if(!r)continue;const info=s01StatusInfo(f),sc=s01ScoreOf(f);r.apiStatus=info.code;r.apiStatusLabel=info.label;r.elapsed=info.elapsed??null;r.lastCheckedAt=new Date().toISOString();r.liveScore={h:sc.h,a:sc.a};if(info.finished&&Number.isFinite(sc.h)&&Number.isFinite(sc.a)){r.final={h:sc.h,a:sc.a};r.settlement=settle(r,r.final);r.resolvedAt=new Date().toISOString();}}save();render();}catch(_){ }
+}
+let s01LiveTimer=null;
+function s01StartLiveMonitor(){clearInterval(s01LiveTimer);s01LiveTimer=setInterval(s01RefreshLive,15000);s01RefreshLive();}
 function mount(){
  const sec=document.getElementById('neo-manual');if(!sec)return;
  sec.innerHTML=`<div class="s01v21-shell"><div class="s01v21-hero"><div class="s01v21-kicker">SCANNER 01 · SOLO TUS LÍNEAS</div><div class="s01v21-title">🔥 Scanner 01 — Laboratorio de cuotas y líneas</div><div class="s01v21-sub">Aquí no se escanean partidos del catálogo. El motor analiza únicamente las líneas que tú pegues. Puede conservar un partido ya jugado, compararlo con su marcador final y aprender de esa observación. La IA no inventa cuotas, resultados ni muestras que no existan.</div><div class="s01v21-format"><b>Formatos aceptados</b><br><code>Real Santander vs p-0.5 Orsomarso (2-2.5)</code><br><code>Tigres vs Atlético (2)</code><br><code>Internacional vs Independiente (2)</code><br><br><b>Opcional:</b> añade <code>=> 2-1</code> al final para guardar el resultado, <code>@1.90</code> para registrar una cuota decimal o empieza con <code>[2026-09-22]:</code> para permitir búsqueda histórica para registrar una cuota decimal. Para que una línea sea evaluable contra el resultado, el marcador final debe existir.</div><textarea id="s01v21Input" class="s01v21-input" spellcheck="false" placeholder="Pega aquí una o muchas líneas, una por renglón...
@@ -1553,11 +1620,12 @@ Real Santander vs p-0.5 Orsomarso (2-2.5)
 Tigres vs Atlético (2)
 Internacional vs Independiente (2)
 
-También puedes pegar: Equipo A vs -0.75 Equipo B (2.75) => 2-1"></textarea><div class="s01v21-toolbar"><button class="primary" id="s01v21Analyze">🔥 Analizar SOLO mis líneas</button><button class="secondary" id="s01v21Web">🌐 Buscar resultados con fecha</button><button class="secondary" id="s01v21Clear">Limpiar Scanner 01</button></div><div id="s01v21Status" class="notice">Listo. Scanner 01 no usará el catálogo general: solo lo que introduzcas aquí.</div></div><div class="s01v21-grid"><div class="panel"><div class="ey">PREDICCIÓN IA · SCANNER 01</div><h2>Qué está aprendiendo</h2><div class="s01v21-meta">El motor separa línea exacta, líneas vecinas, emparejamiento exacto y recencia. Cuando la muestra es pequeña, reduce el peso de la señal en vez de fingir certeza.</div></div><div class="panel"><div class="ey">CONTROL DE CALIDAD</div><h2>Sin autoengaño estadístico</h2><div class="s01v21-meta">Muestra, calibración, cambio de régimen, resultados reales y liquidación asiática. Una señal sin muestra suficiente se marca como incierta.</div></div></div><div id="s01v21Results"></div></div>`;
- document.getElementById('s01v21Analyze').onclick=()=>{const rows=parseAll(document.getElementById('s01v21Input').value);const good=rows.filter(x=>!x.error&&x.home&&x.away);if(!good.length){document.getElementById('s01v21Status').textContent='No pude interpretar ninguna línea.';return;}good.forEach(r=>addRecord(r));document.getElementById('s01v21Status').textContent=`${good.length} línea(s) incorporada(s). El análisis se basa únicamente en tu entrada y en el historial propio de Scanner 01.`;render();};
- document.getElementById('s01v21Web').onclick=async()=>{const rows=parseAll(document.getElementById('s01v21Input').value).filter(x=>!x.error);if(!rows.length)return;const status=document.getElementById('s01v21Status');status.textContent='Buscando resultados históricos en API-Football para las líneas que tengan fecha…';for(const r of rows){if(!DB.some(x=>x.raw===r.raw))addRecord(r);const item=DB.find(x=>x.raw===r.raw);try{await fetchResult(item);}catch(e){status.textContent='Algunos resultados no pudieron resolverse: '+e.message;}}render();};
+También puedes pegar: Equipo A vs -0.75 Equipo B (2.75) => 2-1"></textarea><div class="s01v21-toolbar"><button class="primary" id="s01v21Analyze">🔥 Analizar SOLO mis líneas</button><button class="secondary" id="s01v21Web">🌐 Buscar estado y resultado</button><button class="secondary" id="s01v21Clear">Limpiar Scanner 01</button></div><div id="s01v21Status" class="notice">Listo. Scanner 01 no usará el catálogo general: solo lo que introduzcas aquí.</div></div><div class="s01v21-grid"><div class="panel"><div class="ey">PREDICCIÓN IA · SCANNER 01</div><h2>Qué está aprendiendo</h2><div class="s01v21-meta">El motor separa línea exacta, líneas vecinas, emparejamiento exacto y recencia. Cuando la muestra es pequeña, reduce el peso de la señal en vez de fingir certeza.</div></div><div class="panel"><div class="ey">CONTROL DE CALIDAD</div><h2>Sin autoengaño estadístico</h2><div class="s01v21-meta">Muestra, calibración, cambio de régimen, resultados reales y liquidación asiática. Una señal sin muestra suficiente se marca como incierta.</div></div></div><div id="s01v21Results"></div></div>`;
+ document.getElementById('s01v21Analyze').onclick=async()=>{const rows=parseAll(document.getElementById('s01v21Input').value);const good=rows.filter(x=>!x.error&&x.home&&x.away);if(!good.length){document.getElementById('s01v21Status').textContent='No pude interpretar ninguna línea.';return;}const st=document.getElementById('s01v21Status');for(const r of good){if(!DB.some(x=>x.raw===r.raw))addRecord(r);const item=DB.find(x=>x.raw===r.raw);try{st.textContent=`Buscando estado de ${r.home} vs ${r.away}…`;await fetchResult(item);}catch(e){st.textContent=`${r.home} vs ${r.away}: ${e.message}`;}}st.textContent=`${good.length} línea(s) analizada(s). Scanner 01 buscó estado, marcador y comparación con la predicción.`;render();s01StartLiveMonitor();};
+ document.getElementById('s01v21Web').onclick=async()=>{const rows=parseAll(document.getElementById('s01v21Input').value).filter(x=>!x.error);if(!rows.length)return;const status=document.getElementById('s01v21Status');for(const r of rows){if(!DB.some(x=>x.raw===r.raw))addRecord(r);const item=DB.find(x=>x.raw===r.raw);try{status.textContent=`Consultando API-Football: ${r.home} vs ${r.away}…`;await fetchResult(item);}catch(e){status.textContent=`${r.home} vs ${r.away}: ${e.message}`;}}render();s01StartLiveMonitor();};
  document.getElementById('s01v21Clear').onclick=()=>{if(confirm('Borrar todo el historial propio de Scanner 01?')){DB=[];save();render();document.getElementById('s01v21Status').textContent='Historial de Scanner 01 borrado.';}};
  render();
+ s01StartLiveMonitor();
 }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
  window.Scanner01V21={DB,parseLine,analyze,render};
