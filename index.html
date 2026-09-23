@@ -922,4 +922,108 @@ async function diag(){const box=$('s01V24Diag');if(!box)return;box.textContent='
 document.addEventListener('DOMContentLoaded',()=>{const web=$('s01AnalyzeSelected');if(web){web.textContent='🌐 Analizar con API-Football';web.onclick=runAll}const local=$('s01AnalyzeOne');if(local){local.textContent='🧠 Analizar local';local.onclick=()=>{const parsed=parseAll($('s01PasteInput')?.value||'');S.items=parsed.map(p=>({parsed:p,status:p.error?'bad':'pending',source:'Local'}));S.items.forEach(it=>{if(!it.parsed.error){try{const m={id:'local_'+Math.random(),name:it.parsed.home+' vs '+it.parsed.away,home:it.parsed.home,away:it.parsed.away,h:it.parsed.hcp?.mid??null,g:it.parsed.goals?.mid??null,hParts:it.parsed.hcp?asianParts(it.parsed.hcp):null,gParts:it.parsed.goals?asianParts(it.parsed.goals):null,marketOdds:{}};it.match=m;m.predictionSnapshot=freezePrediction(m,it.parsed);it.status='warn'}catch(e){it.error=e.message}}});render();$('s01PasteStatus').textContent='Análisis local listo; usa API-Football para estado y resultado automático.'}}const clear=$('s01PasteClear');if(clear)clear.onclick=()=>{S.items=[];clearInterval(S.timer);if($('s01PasteInput'))$('s01PasteInput').value='';render();$('s01PasteStatus').textContent='Listo. Introduce una o varias líneas.'};const p=document.querySelector('.s01-paste-actions');if(p&&!$('s01V24Diag')){const b=document.createElement('button');b.className='secondary';b.type='button';b.textContent='🩺 Probar API-Football';b.onclick=diag;p.appendChild(b);const x=document.createElement('div');x.id='s01V24Diag';x.className='s01-v24-diag';p.parentElement.appendChild(x)}const k=$('apiKey');if(k){k.addEventListener('input',()=>{if($('apiStatus'))$('apiStatus').textContent=k.value.trim()?'API-Football key cargada en esta sesión.':'Falta API key.'})}});
 window.LineScannerV24={runAll,refreshAll,diag,parseLine};
 })();
-</script></body></html>
+</script>
+<!-- SCANNER 01 V25 · DIAGNÓSTICO AUTOMÁTICO + AHORRO DE API -->
+<style>
+.s01-v25-diag{margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));font-size:12px}.s01-v25-diag b{font-weight:900}.s01-v25-ok{color:var(--green)}.s01-v25-warn{color:var(--amber)}.s01-v25-bad{color:var(--red)}.s01-v25-muted{color:var(--muted)}.s01-v25-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.s01-v25-pill{padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.025)}
+</style>
+<script>
+/* V25: authoritative API-Football guard. Reduces calls, caches resolutions, detects quota/rate-limit/key/CORS errors, and prevents legacy loops from consuming API. */
+(function(){
+'use strict';
+const BASE='https://v3.football.api-sports.io';
+const CACHE_KEY='ls_s01_v25_cache';
+const DIAG_KEY='ls_s01_v25_diag';
+const TTL_FIXTURE=10*60*1000, TTL_PENDING=2*60*1000, TTL_LIVE=15*1000;
+const $=id=>document.getElementById(id);
+const esc25=s=>typeof esc==='function'?esc(String(s??'')):String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const now=()=>Date.now();
+const mem={cache:new Map(),inflight:new Map(),dailyRemaining:null,minuteRemaining:null,lastStatus:null,circuitUntil:0,lastError:'',lastDiag:0};
+function key(){return ($('apiKey')?.value||'').trim()}
+function cacheLoad(){try{const o=JSON.parse(localStorage.getItem(CACHE_KEY)||'{}');Object.entries(o).forEach(([k,v])=>mem.cache.set(k,v))}catch(_){} }
+function cacheSave(){try{const o={};mem.cache.forEach((v,k)=>{if(v?.savedAt&&now()-v.savedAt<24*3600*1000)o[k]=v});localStorage.setItem(CACHE_KEY,JSON.stringify(o))}catch(_){} }
+function norm25(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(fc|cf|sc|ac|afc|club)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim()}
+function alias25(s){const x=norm25(s);return ({'atlet madrid':'atletico madrid','atletico':'atletico madrid','atletico de madrid':'atletico madrid','man utd':'manchester united','manchester utd':'manchester united','man united':'manchester united','inter milan':'inter','internazionale':'inter','psg':'paris saint germain','paris sg':'paris saint germain','bayern munchen':'bayern munich'})[x]||x}
+function sim25(a,b){a=alias25(a);b=alias25(b);if(a===b)return 100;if(a.includes(b)||b.includes(a))return 88;const A=new Set(a.split(' ')),B=new Set(b.split(' '));let n=0;A.forEach(x=>{if(x&&B.has(x))n++});return Math.round(100*n/Math.max(A.size,B.size,1))}
+function date25(off){const d=new Date(Date.now()+off*86400000);return d.toISOString().slice(0,10)}
+function cacheGet(k,ttl){const x=mem.cache.get(k);return x&&now()-x.savedAt<ttl?x.value:null}
+function cachePut(k,value){mem.cache.set(k,{savedAt:now(),value});cacheSave();return value}
+function headers25(r){mem.dailyRemaining=r.headers.get('x-ratelimit-requests-remaining');mem.minuteRemaining=r.headers.get('X-RateLimit-Remaining');}
+function quotaText25(){const a=mem.dailyRemaining??'—',b=mem.minuteRemaining??'—';return `día: ${a} · min: ${b}`}
+function classify25(status,body){if(status===401||status===403)return 'KEY_INVALID';if(status===429)return 'RATE_LIMIT';const e=body?.errors||{};const t=JSON.stringify(e).toLowerCase();if(t.includes('rate')||t.includes('limit'))return 'RATE_LIMIT';if(t.includes('key')||t.includes('unauthor'))return 'KEY_INVALID';return status>=500?'SERVER':'OTHER'}
+async function api25(path,params={},opts={}){
+ const k=key(); if(!k) throw Object.assign(new Error('Falta la API key de API-Football.'),{code:'NO_KEY'});
+ if(mem.circuitUntil>now() && !opts.force) throw Object.assign(new Error(`API pausada temporalmente para proteger la cuota (${Math.ceil((mem.circuitUntil-now())/1000)}s).`),{code:'CIRCUIT'});
+ const u=new URL(BASE+path);Object.entries(params).forEach(([a,b])=>{if(b!==undefined&&b!==null&&b!=='')u.searchParams.set(a,String(b))});
+ const requestKey=path+'?'+u.searchParams.toString();
+ if(mem.inflight.has(requestKey))return mem.inflight.get(requestKey);
+ const p=(async()=>{let r,body=null;try{r=await fetch(u.toString(),{cache:'no-store',headers:{'x-apisports-key':k,'Accept':'application/json'}})}catch(e){throw Object.assign(new Error('No se pudo conectar con API-Football. Posible CORS, internet o bloqueo de red.'),{code:'NETWORK',cause:e})}
+   try{body=await r.json()}catch(_){body={}}
+   headers25(r);mem.lastStatus=r.status;
+   if(!r.ok||body?.errors&&Object.keys(body.errors).length){const code=classify25(r.status,body);if(code==='RATE_LIMIT'){mem.circuitUntil=now()+30000}if(code==='KEY_INVALID'){mem.circuitUntil=now()+120000}const msg=body?.errors?Object.entries(body.errors).map(([a,b])=>a+': '+b).join(' · '):`HTTP ${r.status}`;throw Object.assign(new Error(msg),{code,status:r.status,body})}
+   return body;
+ })();
+ mem.inflight.set(requestKey,p);try{return await p}finally{mem.inflight.delete(requestKey)}
+}
+async function diagnostic25(force=false){
+ const box=$('s01V25Diag'); if(box&&!force&&now()-mem.lastDiag<30000)return;
+ if(!key()){mem.lastError='NO_KEY';mem.lastDiag=now();renderDiag25();return}
+ if(box)box.innerHTML='<span class="s01-v25-warn">● Diagnóstico automático…</span>';
+ try{const d=await api25('/status',{}, {force:true});const r=d?.response?.[0]||{};mem.lastStatus=200;mem.lastError='';mem.lastDiag=now();
+   // Do not expose account PII from /status in the public UI.
+   if(r.requests){if(r.requests.limit_day!=null&&mem.dailyRemaining==null)mem.dailyRemaining=Math.max(0,Number(r.requests.limit_day)-Number(r.requests.current||0));}
+   renderDiag25('API OK',r.subscription?.plan||'FREE');
+ }catch(e){mem.lastError=e.code||e.message;mem.lastDiag=now();renderDiag25(e.message)}
+}
+function renderDiag25(extra,plan){const box=$('s01V25Diag');if(!box)return;let cls='s01-v25-ok',title=extra||'LISTO';if(mem.lastError==='NO_KEY'){cls='s01-v25-warn';title='FALTA API KEY'}else if(mem.lastError==='KEY_INVALID'){cls='s01-v25-bad';title='API KEY INVÁLIDA'}else if(mem.lastError==='RATE_LIMIT'){cls='s01-v25-warn';title='RATE LIMIT · API PAUSADA'}else if(mem.lastError==='NETWORK'){cls='s01-v25-bad';title='ERROR DE RED / CORS'}else if(mem.lastError==='CIRCUIT'){cls='s01-v25-warn';title='PROTECCIÓN DE CUOTA'}box.innerHTML=`<div><span class="${cls}"><b>● ${esc25(title)}</b></span>${plan?` · plan ${esc25(plan)}`:''}</div><div class="s01-v25-row"><span class="s01-v25-pill">${esc25(quotaText25())}</span><span class="s01-v25-pill">caché: ${mem.cache.size}</span><span class="s01-v25-pill">HTTP: ${esc25(mem.lastStatus??'—')}</span></div>${extra&&extra!=='API OK'?`<div class="s01-v25-muted" style="margin-top:7px">${esc25(extra)}</div>`:''}`}
+function insertDiag25(){
+ const parent=document.querySelector('.s01-paste-actions');if(!parent||$('s01V25Diag'))return;
+ const b=document.createElement('button');b.className='secondary';b.type='button';b.textContent='🩺 Diagnóstico automático';b.onclick=()=>diagnostic25(true);parent.appendChild(b);
+ const d=document.createElement('div');d.id='s01V25Diag';d.className='s01-v25-diag';parent.parentElement.appendChild(d);renderDiag25();
+}
+function fixtureFinal25(f){return ['FT','AET','PEN'].includes(f?.fixture?.status?.short)}
+function fixtureLive25(f){return ['1H','HT','2H','ET','BT','P'].includes(f?.fixture?.status?.short)}
+async function find25(p){
+ const ck='find:'+alias25(p.home)+'|'+alias25(p.away);const cached=cacheGet(ck,TTL_FIXTURE);if(cached)return cached;
+ let best=null,bs=0;
+ // One targeted day call at a time; stop as soon as confidence is high.
+ for(const off of [-1,0,1]){const d=cacheGet('date:'+date25(off),TTL_PENDING)||await api25('/fixtures',{date:date25(off)});cachePut('date:'+date25(off),d);for(const f of (d.response||[])){const s=sim25(f.teams?.home?.name,p.home)+sim25(f.teams?.away?.name,p.away);if(s>bs){bs=s;best=f}}if(bs>=190)break}
+ if(!best||bs<150){
+   const tc='team:'+alias25(p.home);let td=cacheGet(tc,24*3600*1000);if(!td){td=await api25('/teams',{search:p.home});cachePut(tc,td)}const id=td?.response?.[0]?.team?.id;
+   if(id){for(const mode of ['last','next']){const ck2=`teamfx:${id}:${mode}`;let d=cacheGet(ck2,TTL_FIXTURE);if(!d){d=await api25('/fixtures',{team:id,[mode]:mode==='last'?20:10});cachePut(ck2,d)}for(const f of (d.response||[])){const s=sim25(f.teams?.home?.name,p.home)+sim25(f.teams?.away?.name,p.away);if(s>bs){bs=s;best=f}}if(bs>=190)break}}
+ }
+ if(best&&bs>=150)cachePut(ck,best);return best;
+}
+function installFetchGuard25(){
+ const native=window.fetch.bind(window); if(window.__LS_V25_FETCH_GUARD)return; window.__LS_V25_FETCH_GUARD=true; const cache=new Map(); const inflight=new Map();
+ window.fetch=async function(input,init){
+   try{const url=typeof input==='string'?input:(input?.url||''); const method=(init?.method||'GET').toUpperCase(); if(method!=='GET'||!url.startsWith(BASE))return native(input,init);
+     const u=new URL(url); const path=u.pathname; const key=url; let ttl=15000;
+     if(path==='/fixtures'&&u.searchParams.has('date'))ttl=10*60*1000;
+     else if(path==='/teams')ttl=24*3600*1000;
+     else if(path==='/fixtures'&&u.searchParams.has('team'))ttl=10*60*1000;
+     else if(path==='/status')ttl=30*1000;
+     const hit=cache.get(key); if(hit&&Date.now()-hit.t<ttl)return hit.r.clone();
+     if(inflight.has(key))return (await inflight.get(key)).clone();
+     const pr=native(input,init).then(async r=>{try{headers25(r); if(r.ok){cache.set(key,{t:Date.now(),r:r.clone()});}else if(r.status===429){mem.circuitUntil=Date.now()+30000;mem.lastError='RATE_LIMIT';}}catch(_){} return r});
+     inflight.set(key,pr); try{return (await pr).clone()} finally{inflight.delete(key)}
+   }catch(e){return native(input,init)}
+ };
+}
+function protectLegacy25(){
+ // The old build contains a recurring score poller and an Odds API feed. V25 stops those automatic calls.
+ try{if(typeof state!=='undefined'){state.refreshBusy=false;state.scoreBusy=false;state.scoreInitialized=true;clearInterval(state.timer);state.timer=null}}catch(_){}
+ try{window.__LS_V25_API_GUARD=true}catch(_){}
+}
+function patchLegacy25(){
+ // Keep legacy UI usable but prevent its automatic network polling from spending the API budget.
+ if(typeof window.loadScores==='function')window.loadScores=async function(){return false};
+ if(typeof window.stopFeed==='function'){const old=window.stopFeed;window.stopFeed=function(){try{old()}catch(_){}}}
+ protectLegacy25();
+}
+async function boot25(){installFetchGuard25();insertDiag25();patchLegacy25();if(key())await diagnostic25(false);else renderDiag25();}
+window.LineScannerV25={diagnostic:diagnostic25,findFixture:find25,cache:mem,quota:()=>({daily:mem.dailyRemaining,minute:mem.minuteRemaining}),clearCache:()=>{mem.cache.clear();try{localStorage.removeItem(CACHE_KEY)}catch(_){}},protect:protectLegacy25};
+document.addEventListener('DOMContentLoaded',()=>{boot25();const k=$('apiKey');if(k)k.addEventListener('change',()=>{mem.circuitUntil=0;mem.lastError='';diagnostic25(true)});});
+})();
+</script>
+</body></html>
