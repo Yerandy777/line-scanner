@@ -1,12 +1,12 @@
 {
   "name": "Line Scanner Pro",
   "short_name": "Line Scanner Pro",
-  "start_url": "./index.html",
+  "start_url": "./index.html#home",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#020a16",
   "theme_color": "#03111f",
-  "description": "Line Scanner Pro — experiencia deportiva eléctrica, Scanner Pro y análisis en vivo.",
+  "description": "Line Scanner Pro — navegación corregida, filtros funcionales y estados reales.",
   "icons": [
     {
       "src": "icon.svg",
