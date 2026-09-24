@@ -7,9 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Line Scanner Pro">
-<link rel="manifest" href="manifest.webmanifest?v=20260924-1345">
+<link rel="manifest" href="manifest.webmanifest?v=20260924-1500">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<title>Line Scanner Pro V39 Scanner Pro Engine · Mobile Update</title>
+<title>Line Scanner Pro V40 Scanner Pro · Auto Filters · Learning Engine</title>
 <style>
 :root{
  --bg:#020a16;--bg2:#031426;--panel:#061b2d;--panel2:#08243a;--line:#0b5c86;
@@ -229,6 +229,39 @@ body{background:#000814}
 .home-demo-warning{margin:7px 0 10px;padding:10px;border:1px solid rgba(255,215,94,.25);border-radius:12px;background:rgba(255,215,94,.045);color:#d6b95d;font-size:7px;line-height:1.45}
 
 .scanner-auto-bar{display:flex;gap:6px;overflow:auto;padding:2px 0 8px;scrollbar-width:none}.scanner-auto-bar .pill{white-space:nowrap}.scanner-engine-card{border-color:rgba(0,231,255,.25);background:linear-gradient(135deg,rgba(0,231,255,.07),rgba(0,240,168,.035),rgba(5,16,30,.82))}.engine-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:9px}.engine-cell{padding:8px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06)}.engine-cell b{display:block;font-size:9px}.engine-cell span{display:block;margin-top:3px;color:#7e9caf;font-size:7px;line-height:1.35}.decision-card{border-color:rgba(0,240,168,.35);box-shadow:0 0 24px rgba(0,240,168,.07)}.decision-pick{font-size:18px;font-weight:900;color:#00f0a8;text-shadow:0 0 14px rgba(0,240,168,.25)}.decision-reason{font-size:8px;color:#a9c4d1;line-height:1.5;margin-top:7px}.reason-list{display:grid;gap:5px;margin-top:8px}.reason-list div{padding:7px 8px;border-left:2px solid rgba(0,231,255,.55);background:rgba(0,231,255,.025);font-size:7px;color:#91adbc}.confidence-meter{height:5px;background:#07131f;border-radius:999px;overflow:hidden;margin-top:6px}.confidence-meter i{display:block;height:100%;background:linear-gradient(90deg,#00e7ff,#00f0a8);border-radius:999px}.scanner-status-filter{margin-top:3px}.learning-badge{color:#c8f8ed!important;border-color:rgba(0,240,168,.3)!important}.void{color:#d9b7ff!important;border-color:rgba(170,100,255,.3)!important}.scan-state-live{color:#00f0a8}.scan-state-upcoming{color:#00e7ff}.scan-state-finished{color:#9ab0bd}.scan-state-void{color:#d5b3ff}
+
+/* ===== V40 SCANNER PRO ENGINE ===== */
+.scanner-v40-badge{font-size:6px!important;color:#00f0a8!important;border-color:rgba(0,240,168,.34)!important;background:rgba(0,240,168,.05)}
+.scanner-filter-wrap{display:grid;gap:6px;margin-bottom:9px}
+.scanner-filter-label{font-size:6px;color:#66899d;letter-spacing:.7px;text-transform:uppercase}
+.scanner-filter-row{display:flex;gap:5px;overflow:auto;scrollbar-width:none}
+.scanner-filter-row::-webkit-scrollbar{display:none}
+.scanner-filter-row .pill{font-size:7px;padding:6px 9px}
+.scanner-filter-row .pill.active{box-shadow:0 0 13px rgba(0,240,168,.13)}
+.scanner-auto-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.scanner-auto-summary .metric{padding:7px;text-align:center}
+.scanner-auto-summary .metric b{font-size:12px}
+.scanner-auto-summary .metric span{font-size:6px}
+.scanner-signal-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}
+.scanner-signal{padding:7px 8px;border:1px solid rgba(0,231,255,.13);border-radius:9px;background:rgba(0,231,255,.025)}
+.scanner-signal b{display:block;font-size:7px}
+.scanner-signal span{display:block;font-size:6px;color:#7d9bac;margin-top:2px;line-height:1.35}
+.scanner-signal.ok{border-color:rgba(0,240,168,.28)}
+.scanner-signal.warn{border-color:rgba(255,212,59,.25)}
+.scanner-signal.bad{border-color:rgba(255,49,88,.28)}
+.scanner-decision-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.scanner-decision-meta span{font-size:6px;padding:4px 6px;border-radius:999px;border:1px solid rgba(0,231,255,.17);color:#88a9ba;background:rgba(0,231,255,.025)}
+.scanner-decision-meta .green{color:#00f0a8;border-color:rgba(0,240,168,.25)}
+.scanner-decision-meta .yellow{color:#ffd43b;border-color:rgba(255,212,59,.25)}
+.scanner-no-bet{border-color:rgba(255,212,59,.34)!important;box-shadow:0 0 22px rgba(255,212,59,.05)}
+.scanner-pattern-card{border-color:rgba(139,92,246,.28)}
+.scanner-pattern{display:grid;grid-template-columns:1fr auto;gap:5px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.scanner-pattern:last-child{border-bottom:0}
+.scanner-pattern b{font-size:7px}
+.scanner-pattern span{font-size:6px;color:#7898aa;line-height:1.35}
+.scanner-pattern strong{font-size:8px;color:#00f0a8}
+.scanner-history-note{font-size:6px;color:#6e8d9e;line-height:1.45;margin-top:7px}
+
 </style>
 </head>
 <body>
@@ -306,19 +339,44 @@ body{background:#000814}
  </div>
 
  <div class="card scanner-search-card"><input id="searchBox" class="input" placeholder="⌕  Buscar equipos, ligas o torneos..."></div>
- <div class="section-head"><h2>Filtros rápidos</h2><span class="small">Automáticos</span></div>
- <div class="scanner-auto-bar scanner-status-filter">
-   <button class="pill active" data-scan-status="all">Todos</button>
-   <button class="pill" data-scan-status="LIVE">En vivo</button>
-   <button class="pill" data-scan-status="UPCOMING">Próximos</button>
-   <button class="pill" data-scan-status="PENDIENTE">Pendientes</button>
-   <button class="pill" data-scan-status="SETTLED">Cerrados</button>
+ <div class="section-head"><h2>Filtros rápidos</h2><span class="small scanner-v40-badge">AUTO · V40</span></div>
+ <div class="scanner-filter-wrap">
+   <div class="scanner-filter-label">Estado del análisis</div>
+   <div class="scanner-filter-row scanner-status-filter">
+     <button class="pill active" data-scan-status="all">Todos</button>
+     <button class="pill" data-scan-status="LIVE">En vivo</button>
+     <button class="pill" data-scan-status="UPCOMING">Próximos</button>
+     <button class="pill" data-scan-status="PENDIENTE">Pendientes</button>
+     <button class="pill" data-scan-status="SETTLED">Cerrados</button>
+   </div>
+   <div class="scanner-filter-label">Mercado detectado automáticamente</div>
+   <div class="scanner-filter-row">
+     <button class="pill active" data-scan-market="all">Todos</button>
+     <button class="pill" data-scan-market="OVER">Over</button>
+     <button class="pill" data-scan-market="UNDER">Under</button>
+     <button class="pill" data-scan-market="HÁNDICAP">Hándicap</button>
+     <button class="pill" data-scan-market="MIXTO">Mixto</button>
+   </div>
+   <div class="scanner-filter-label">Calidad / señal</div>
+   <div class="scanner-filter-row">
+     <button class="pill active" data-scan-quality="all">Todas</button>
+     <button class="pill" data-scan-quality="BUENA">Datos altos</button>
+     <button class="pill" data-scan-quality="MEDIA">Datos medios</button>
+     <button class="pill" data-scan-quality="LIMITADA">Datos limitados</button>
+     <button class="pill" data-scan-quality="NO_APTA">No apta</button>
+   </div>
+   <div class="scanner-filter-label">Periodo</div>
+   <div class="scanner-filter-row scanner-range-row">
+     <button class="pill active" data-scan-range="today">Hoy</button>
+     <button class="pill" data-scan-range="7d">7 días</button>
+     <button class="pill" data-scan-range="30d">30 días</button>
+     <button class="pill" data-scan-range="all">Todos</button>
+   </div>
  </div>
- <div class="pill-row scanner-range-row">
-   <button class="pill active" data-scan-range="today">Hoy</button>
-   <button class="pill" data-scan-range="7d">7 días</button>
-   <button class="pill" data-scan-range="30d">30 días</button>
-   <button class="pill" data-scan-range="all">Todos</button>
+ <div class="scanner-auto-summary">
+   <div class="metric"><b id="scanVisible">0</b><span>VISIBLES</span></div>
+   <div class="metric"><b id="scanSignals">0</b><span>SEÑALES</span></div>
+   <div class="metric"><b id="scanPatterns">0</b><span>PATRONES</span></div>
  </div>
 
  <div class="card scanner-input-card">
@@ -330,9 +388,14 @@ body{background:#000814}
    <div class="scanner-footnote"><span>✓ Entrada preservada</span><span>✓ Modelo adaptativo</span><span>✓ Verificación online</span></div>
  </div>
 
- <div class="card scanner-engine-card"><div class="section-head"><h2>Motor de decisión</h2><span class="scanner-status learning-badge">APRENDIZAJE ACTIVO</span></div><div class="small">La entrada manda: el sistema conserva tu línea, busca el partido real, estudia el estado actual o previo al inicio y contrasta forma, H2H, goles y señales disponibles. La selección queda congelada antes de conocer el resultado.</div><div class="engine-grid"><div class="engine-cell"><b>1 · IDENTIFICAR</b><span>Equipo, rival, competición y fixture real.</span></div><div class="engine-cell"><b>2 · CONTEXTUALIZAR</b><span>En vivo: marcador y minuto. Próximo: contexto prepartido.</span></div><div class="engine-cell"><b>3 · CONTRASTAR</b><span>Forma, H2H, predicción del proveedor y línea recibida.</span></div><div class="engine-cell"><b>4 · DECIDIR</b><span>Over, Under o Hándicap con razones y confianza.</span></div></div></div>
+ <div class="card scanner-engine-card"><div class="section-head"><h2>Motor de decisión</h2><span class="scanner-status learning-badge">APRENDIZAJE ACTIVO</span></div><div class="small">La entrada manda: V40 conserva exactamente tu línea, identifica el fixture, determina si está en vivo o próximo, contrasta múltiples señales y aplica un umbral de evidencia. Si no hay evidencia suficiente, devuelve SIN APUESTA. La selección queda congelada antes del resultado.</div><div class="engine-grid"><div class="engine-cell"><b>1 · IDENTIFICAR</b><span>Equipo, rival, competición y fixture real.</span></div><div class="engine-cell"><b>2 · CONTEXTUALIZAR</b><span>En vivo: marcador y minuto. Próximo: contexto prepartido.</span></div><div class="engine-cell"><b>3 · CONTRASTAR</b><span>Forma, H2H, predicción del proveedor y línea recibida.</span></div><div class="engine-cell"><b>4 · DECIDIR</b><span>Over, Under o Hándicap con razones y confianza.</span></div><div class="scanner-signal-grid"><div class="scanner-signal ok"><b>① IDENTIFICAR</b><span>Fixture real, competición y estado.</span></div><div class="scanner-signal ok"><b>② CONTRASTAR</b><span>Forma, H2H, goles, señal externa y línea.</span></div><div class="scanner-signal ok"><b>③ FILTRAR</b><span>Calidad, contradicciones y umbral mínimo.</span></div><div class="scanner-signal warn"><b>④ DECIDIR</b><span>Over, Under, Hándicap o SIN APUESTA.</span></div></div></div>
 
  <div id="scannerResults"></div>
+ <div class="card scanner-pattern-card">
+   <div class="section-head"><h2>Patrones detectados</h2><span class="scanner-status learning-badge">SOLO DATOS CERRADOS</span></div>
+   <div id="scannerPatterns"></div>
+   <div class="scanner-history-note">Los patrones se calculan únicamente con análisis ya liquidados. El resultado final nunca modifica el snapshot original; solo alimenta el histórico para futuros análisis.</div>
+ </div>
 
  <div class="card scanner-diagnostic"><div class="section-head"><h2>Diagnóstico del Scanner</h2><button id="selfTestBtn">Ejecutar</button></div><div id="selfTest"></div></div>
 </section>
@@ -377,7 +440,7 @@ body{background:#000814}
 </div>
 <script>
 (function(){'use strict';
-const VERSION='V39 SCANNER PRO ENGINE · MOBILE UPDATE';
+const VERSION='V40 SCANNER PRO · AUTO FILTERS · LEARNING ENGINE';
 const SPORTS=[['football','⚽','Fútbol'],['basketball','🏀','Baloncesto'],['baseball','⚾','Béisbol'],['hockey','🏒','Hockey'],['f1','🏎️','F1'],['mma','🥊','MMA'],['rugby','🏉','Rugby'],['volleyball','🏐','Voleibol'],['tennis','🎾','Tenis']];
 const API_CFG={
  football:{label:'Fútbol',base:'https://v3.football.api-sports.io',live:'/fixtures?live=all',upcoming:'/fixtures?date=',kind:'football'},
@@ -400,7 +463,7 @@ const DEMO=[
 ];
 const memoryStore=new Map();const store={get(k,d){try{const v=window.sessionStorage.getItem(k);return v?JSON.parse(v):(memoryStore.has(k)?memoryStore.get(k):d)}catch{return memoryStore.has(k)?memoryStore.get(k):d}},set(k,v){memoryStore.set(k,v);try{window.sessionStorage.setItem(k,JSON.stringify(v))}catch{}},del(k){memoryStore.delete(k);try{window.sessionStorage.removeItem(k)}catch{}}};
 function sessionGet(k){try{return window.sessionStorage.getItem(k)||memoryStore.get(k)||''}catch{return memoryStore.get(k)||''}} function sessionSet(k,v){memoryStore.set(k,v);try{window.sessionStorage.setItem(k,v)}catch{}} function sessionDel(k){memoryStore.delete(k);try{window.sessionStorage.removeItem(k)}catch{}}
-const state={page:'home',sport:'all',liveFilter:'all',finalFilter:'today',scanRange:'today',scanStatus:'all',scans:store.get('lsp_scans',[]),preds:store.get('lsp_preds',[]),apiKey:sessionGet('lsp_api'),selected:null,online:{},liveCache:{},scoreMemory:{},visualSport:(()=>{try{return localStorage.getItem('lsp_visual_sport')||'football'}catch(e){return 'football'}})()};
+const state={page:'home',sport:'all',liveFilter:'all',finalFilter:'today',scanRange:'today',scanStatus:'all',scanMarket:'all',scanQuality:'all',scans:store.get('lsp_scans',[]),preds:store.get('lsp_preds',[]),apiKey:sessionGet('lsp_api'),selected:null,online:{},liveCache:{},scoreMemory:{},visualSport:(()=>{try{return localStorage.getItem('lsp_visual_sport')||'football'}catch(e){return 'football'}})()};
 function $(s){return document.querySelector(s)} function $$(s){return [...document.querySelectorAll(s)]}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function toast(s){const t=$('#toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400)}
@@ -693,38 +756,194 @@ async function renderFinal(){
 function settledScans(){return state.scans.filter(s=>['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS'].includes(s.settlement))}
 function outcomeScore(s){return s.settlement==='GANADA'||s.settlement==='MEDIA-WIN'?1:s.settlement==='PUSH'?.5:s.settlement==='MEDIA-LOSS'?.25:0}
 function marketLabel(p){const low=String(p?.raw||'').toLowerCase();const arr=[];if(p?.line!=null)arr.push(low.includes('under')||low.includes('menos')?'UNDER':'OVER');if(p?.handicap!=null)arr.push('HÁNDICAP');return arr.join(' + ')||'LÍNEA'}
+
 function learningProfile(p){
- const done=settledScans(),market=marketLabel(p),bucket=p.line!=null?Math.round(p.line*4)/4:p.handicap!=null?Math.round(p.handicap*4)/4:null;
+ const done=settledScans(), market=marketLabel(p);
+ const lineBucket=p.line!=null?Math.round(p.line*4)/4:(p.handicap!=null?Math.round(p.handicap*4)/4:null);
  const side=p.handicapTeam||'home';
- const relevant=done.filter(s=>marketLabel(s.parsed)===market&&(bucket==null||Math.abs((s.parsed.line??s.parsed.handicap??99)-bucket)<=.001)&&(s.parsed.handicap==null||((s.parsed.handicapTeam||'home')===side)));
- const all=done.filter(s=>marketLabel(s.parsed)===market);const rate=a=>a.length?Math.round(a.reduce((n,s)=>n+outcomeScore(s),0)/a.length*100):null;
- const confBuckets={high:done.filter(s=>Number(s.snapshot?.confidence)>=75),mid:done.filter(s=>Number(s.snapshot?.confidence)>=60&&Number(s.snapshot?.confidence)<75),low:done.filter(s=>Number(s.snapshot?.confidence)<60)};
- return {market,bucket,side,sample:relevant.length,marketSample:all.length,bucketRate:rate(relevant),marketRate:rate(all),confidenceBands:Object.fromEntries(Object.entries(confBuckets).map(([k,a])=>[k,{n:a.length,rate:rate(a)}]))}
+ const relevant=done.filter(s=>{
+   const sp=s.parsed||{};
+   const sameMarket=marketLabel(sp)===market;
+   const sameBucket=lineBucket==null || Math.abs((sp.line??sp.handicap??999)-lineBucket)<=.001;
+   const sameSide=sp.handicap==null || (sp.handicapTeam||'home')===side;
+   return sameMarket&&sameBucket&&sameSide;
+ });
+ const rate=a=>a.length?Math.round(a.reduce((n,s)=>n+outcomeScore(s),0)/a.length*100):null;
+ const patterns=done.filter(s=>s.featureSnapshot&&s.settlement&&s.settlement!=='DEVUELTA');
+ const conf=a=>a.length?Math.round(a.reduce((n,s)=>n+Number(s.snapshot?.confidence||0),0)/a.length):0;
+ return {
+   market,lineBucket,side,sample:relevant.length,marketSample:done.filter(s=>marketLabel(s.parsed)===market).length,
+   bucketRate:rate(relevant),marketRate:rate(done.filter(s=>marketLabel(s.parsed)===market)),
+   historicalConfidence:conf(relevant),patterns:patterns.length
+ };
 }
 function prediction(parsed){
- const prior=learningProfile(parsed);let confidence=56;let pick='REVISAR LÍNEA';
- if(parsed.line!=null){const side=parsed.totalSide || (parsed.line!=null ? 'OVER' : null);if(side)pick=`${side} ${parsed.line}`;confidence=58}
- if(parsed.handicap!=null){const side=(parsed.handicapTeam||'home')==='home'?'LOCAL':'VISITANTE';pick=`HÁNDICAP ${side} ${parsed.handicap}`;confidence=Math.max(confidence,58)}
- if(prior.bucketRate!=null&&prior.sample>=3)confidence=confidence*.68+prior.bucketRate*.32;else if(prior.marketRate!=null&&prior.marketSample>=4)confidence=confidence*.82+prior.marketRate*.18;
- const c=Math.max(50,Math.min(95,Math.round(confidence)));const priorText=prior.bucketRate!=null?`Historial de la misma familia: ${prior.bucketRate}% en ${prior.sample} casos.`:prior.marketRate!=null?`Historial del mercado: ${prior.marketRate}% en ${prior.marketSample} casos.`:'Sin muestra histórica suficiente.';
- return {prediction:pick,confidence:c,reason:`Snapshot inicial. ${priorText} El resultado futuro nunca modifica retroactivamente esta decisión.`,learningPrior:prior,modelVersion:'V38-SCANNER-ENGINE-01',frozenAt:new Date().toISOString()}
+ const prior=learningProfile(parsed);
+ let pick='SIN SEÑAL',confidence=38;
+ if(parsed.line!=null){
+   const side=parsed.totalSide||'OVER';
+   pick=`${side} ${parsed.line}`;
+   confidence=50;
+ }
+ if(parsed.handicap!=null){
+   const side=(parsed.handicapTeam||'home')==='home'?'LOCAL':'VISITANTE';
+   pick=`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`;
+   confidence=Math.max(confidence,50);
+ }
+ if(prior.bucketRate!=null&&prior.sample>=3)confidence=confidence*.65+prior.bucketRate*.35;
+ const c=Math.max(0,Math.min(95,Math.round(confidence)));
+ const priorText=prior.bucketRate!=null
+   ?`Historial de la misma familia: ${prior.bucketRate}% sobre ${prior.sample} casos.`
+   :'Sin muestra histórica suficiente.';
+ return {
+   prediction:pick,confidence:c,
+   reason:`Snapshot V40. ${priorText} El histórico se usa como evidencia y nunca reescribe una decisión ya congelada.`,
+   learningPrior:prior,modelVersion:'V40-SCANNER-PRO-01',frozenAt:new Date().toISOString()
+ };
 }
-function summarizeForm(rows,teamId){const a=(rows||[]).filter(f=>fixtureStatus(f.fixture?.status?.short)==='FINISHED');let gf=0,ga=0,w=0,d=0,l=0;for(const f of a){const isHome=f.teams?.home?.id===teamId,h=f.goals?.home??0,aw=f.goals?.away??0;gf+=isHome?h:aw;ga+=isHome?aw:h;const r=(isHome?h-aw:aw-h);if(r>0)w++;else if(r===0)d++;else l}return {n:a.length,gf,ga,avgGF:a.length?+(gf/a.length).toFixed(2):0,avgGA:a.length?+(ga/a.length).toFixed(2):0,w,d,l,winRate:a.length?Math.round(w/a.length*100):0}}
-function summarizeH2H(rows,homeId,awayId){const a=(rows||[]).filter(f=>fixtureStatus(f.fixture?.status?.short)==='FINISHED').slice(0,5);if(!a.length)return {n:0,avgTotal:0,homeMargin:0};let total=0,margin=0;for(const f of a){const h=f.goals?.home??0,aw=f.goals?.away??0;total+=h+aw;margin+=(f.teams?.home?.id===homeId?h-aw:aw-h)}return {n:a.length,avgTotal:+(total/a.length).toFixed(2),homeMargin:+(margin/a.length).toFixed(2)}}
+function summarizeForm(rows,teamId){
+ const a=(rows||[]).filter(f=>fixtureStatus(f.fixture?.status?.short)==='FINISHED');
+ let gf=0,ga=0,w=0,d=0,l=0;
+ for(const f of a){
+  const isHome=f.teams?.home?.id===teamId,h=f.goals?.home??0,aw=f.goals?.away??0;
+  gf+=isHome?h:aw;ga+=isHome?aw:h;
+  const r=isHome?h-aw:aw-h;if(r>0)w++;else if(r===0)d++;else l++;
+ }
+ return {n:a.length,gf,ga,avgGF:a.length?+(gf/a.length).toFixed(2):0,avgGA:a.length?+(ga/a.length).toFixed(2):0,w,d,l,winRate:a.length?Math.round(w/a.length*100):0};
+}
+function summarizeH2H(rows,homeId,awayId){
+ const a=(rows||[]).filter(f=>fixtureStatus(f.fixture?.status?.short)==='FINISHED').slice(0,5);
+ if(!a.length)return {n:0,avgTotal:0,homeMargin:0};
+ let total=0,margin=0;
+ for(const f of a){
+  const h=f.goals?.home??0,aw=f.goals?.away??0;total+=h+aw;
+  margin+=(f.teams?.home?.id===homeId?h-aw:aw-h);
+ }
+ return {n:a.length,avgTotal:+(total/a.length).toFixed(2),homeMargin:+(margin/a.length).toFixed(2)};
+}
 function liveProjection(parsed,match,totalExp){
- const elapsed=Math.max(1,Math.min(90,Number(match?.minute)||45)),current=(Number(match?.homeScore)||0)+(Number(match?.awayScore)||0),remaining=Math.max(0,90-elapsed);const pace=current/(elapsed/90);const paceFactor=current===0?1:Math.max(.55,Math.min(1.65,pace/Math.max(.35,totalExp)));const remExp=totalExp*(remaining/90)*(.72+.28*paceFactor);const projected=+(current+remExp).toFixed(2);return {elapsed,current,remaining,pace:+pace.toFixed(2),paceFactor:+paceFactor.toFixed(2),remainingExpected:+remExp.toFixed(2),projectedFinal:projected}}
-function buildResearch(parsed,match,research){
- const hf=summarizeForm(research?.homeForm,match?.homeId),af=summarizeForm(research?.awayForm,match?.awayId),h2h=summarizeH2H(research?.h2h,match?.homeId,match?.awayId);
- const homeExp=(hf.avgGF+af.avgGA)/2,awayExp=(af.avgGF+hf.avgGA)/2;let totalExp=+(homeExp+awayExp).toFixed(2),marginExp=+(homeExp-awayExp).toFixed(2);const apiOU=research?.apiPrediction?.under_over;
- const live=match?.status==='LIVE',lp=live?liveProjection(parsed,match,totalExp):null;const targetTotal=live?lp.projectedFinal:totalExp;let candidates=[];
- if(parsed.line!=null){let side=parsed.totalSide;if(!side)side=targetTotal>parsed.line?'OVER':'UNDER';const gap=+(Math.abs(targetTotal-parsed.line)).toFixed(2);candidates.push({market:'Over/Under',pick:`${side} ${parsed.line}`,reason:`${live?'Proyección en vivo':'Proyección previa'} de ${targetTotal} goles frente a tu línea ${parsed.line}; diferencia ${gap}.`});if(apiOU)candidates.push({market:'Señal externa',pick:String(apiOU).toUpperCase(),reason:`Se usa solo como evidencia externa; la línea analizada sigue siendo ${parsed.line}.`});}
- if(parsed.handicap!=null){const team=parsed.handicapTeam||'home';const edge=team==='home'?marginExp+parsed.handicap:-marginExp+parsed.handicap;const side=edge>=0?'LOCAL':'VISITANTE';candidates.push({market:'Hándicap',pick:`${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`,reason:`Margen esperado ${marginExp}; ajuste de la línea para ${team==='home'?'local':'visitante'} = ${edge.toFixed(2)}.`})}
- if(research?.apiPrediction?.winner?.name)candidates.push({market:'Resultado',pick:research.apiPrediction.winner.name,reason:'Ganador señalado por el proveedor externo.'});
- const primary=candidates[0]||{market:'Línea',pick:'DATOS INSUFICIENTES',reason:'No se pudo convertir la entrada en un mercado evaluable.'};
- const prior=learningProfile(parsed);let confidence=58;const gap=parsed.line!=null?Math.abs(targetTotal-parsed.line):Math.abs(marginExp+(parsed.handicap||0));confidence+=Math.min(20,gap*10);if(apiOU&&parsed.line!=null)confidence+=5;if(h2h.n>=3)confidence+=3;if(hf.n>=4&&af.n>=4)confidence+=4;if(prior.bucketRate!=null&&prior.sample>=3)confidence=confidence*.7+prior.bucketRate*.3;confidence=Math.max(50,Math.min(95,Math.round(confidence)));
- const reasons=[`Estado: ${live?`EN VIVO · ${match.minute||'?'}' · ${match.homeScore}-${match.awayScore}`:'PREPARTIDO · fixture identificado'}`,`Forma: ${match.home} ${hf.avgGF} GF / ${hf.avgGA} GC; ${match.away} ${af.avgGF} GF / ${af.avgGA} GC.`,h2h.n?`H2H: ${h2h.n} partidos, promedio ${h2h.avgTotal} goles.`:'H2H: sin muestra suficiente.',apiOU?`Señal externa: ${apiOU}.`:'Señal externa Over/Under: no disponible.',prior.bucketRate!=null?`Patrón histórico de esta familia: ${prior.bucketRate}% sobre ${prior.sample} casos.`:'Patrón histórico: muestra insuficiente.' ];
- return {homeForm:hf,awayForm:af,h2h,totalExpected:totalExp,marginExpected:+marginExp.toFixed(2),liveProjection:lp,candidates,primary,confidence,checks:{line:parsed.line,handicap:parsed.handicap},reasons,dataQuality:[hf.n,af.n].reduce((a,b)=>a+b,0)>=8?'BUENA':([hf.n,af.n].reduce((a,b)=>a+b,0)>=4?'MEDIA':'LIMITADA'),learningPrior:prior,decisionMode:live?'LIVE':'PREMATCH'}
+ const elapsed=Math.max(1,Math.min(90,Number(match?.minute)||45));
+ const current=(Number(match?.homeScore)||0)+(Number(match?.awayScore)||0);
+ const remaining=Math.max(0,90-elapsed);
+ const pace=current/(elapsed/90);
+ const paceFactor=current===0?1:Math.max(.55,Math.min(1.65,pace/Math.max(.35,totalExp)));
+ const remExp=totalExp*(remaining/90)*(.72+.28*paceFactor);
+ return {elapsed,current,remaining,pace:+pace.toFixed(2),paceFactor:+paceFactor.toFixed(2),remainingExpected:+remExp.toFixed(2),projectedFinal:+(current+remExp).toFixed(2)};
 }
+function buildResearch(parsed,match,research){
+ const hf=summarizeForm(research?.homeForm,match?.homeId);
+ const af=summarizeForm(research?.awayForm,match?.awayId);
+ const h2h=summarizeH2H(research?.h2h,match?.homeId,match?.awayId);
+ const homeExp=(hf.avgGF+af.avgGA)/2;
+ const awayExp=(af.avgGF+hf.avgGA)/2;
+ let totalExp=+(homeExp+awayExp).toFixed(2);
+ const marginExp=+(homeExp-awayExp).toFixed(2);
+ const apiOU=research?.apiPrediction?.under_over;
+ const live=match?.status==='LIVE';
+ const lp=live?liveProjection(parsed,match,totalExp):null;
+ const targetTotal=live?lp.projectedFinal:totalExp;
+ const signals=[];
+ const candidates=[];
+
+ // Total line signal
+ if(parsed.line!=null){
+   let side=parsed.totalSide;
+   if(!side) side=targetTotal>parsed.line?'OVER':'UNDER';
+   const gap=+(targetTotal-parsed.line).toFixed(2);
+   const abs=Math.abs(gap);
+   const modelSignal=gap>0.12?'OVER':gap<-0.12?'UNDER':'NEUTRAL';
+   if(modelSignal!=='NEUTRAL')signals.push({name:'Proyección vs línea',value:`${targetTotal} vs ${parsed.line}`,state:abs>=.5?'ok':abs>=.2?'warn':'bad'});
+   if(apiOU){
+     const ext=String(apiOU).toUpperCase();
+     const agrees=ext.includes(side);
+     signals.push({name:'Señal externa',value:ext,state:agrees?'ok':'bad'});
+   } else signals.push({name:'Señal externa',value:'NO DISPONIBLE',state:'warn'});
+   if(abs>=.18){
+     candidates.push({market:'Over/Under',pick:`${side} ${parsed.line}`,reason:`${live?'Proyección en vivo':'Proyección prepartido'} ${targetTotal} frente a línea ${parsed.line}; diferencia ${gap>0?'+':''}${gap}.`});
+   }
+ }
+
+ // Handicap signal
+ if(parsed.handicap!=null){
+   const team=parsed.handicapTeam||'home';
+   const adjusted=team==='home'?marginExp+parsed.handicap:-marginExp+parsed.handicap;
+   const side=adjusted>=0?'LOCAL':'VISITANTE';
+   const edge=Math.abs(adjusted);
+   signals.push({name:'Margen vs hándicap',value:`${marginExp} / ajuste ${adjusted.toFixed(2)}`,state:edge>=.5?'ok':edge>=.2?'warn':'bad'});
+   if(edge>=.18)candidates.push({
+     market:'Hándicap',
+     pick:`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`,
+     reason:`Margen esperado ${marginExp}; ajuste de la línea para ${team==='home'?'local':'visitante'} = ${adjusted.toFixed(2)}.`
+   });
+ }
+
+ // Context signals
+ signals.push({name:'Forma reciente',value:`${hf.n}+${af.n} partidos`,state:(hf.n>=4&&af.n>=4)?'ok':(hf.n||af.n)?'warn':'bad'});
+ signals.push({name:'H2H',value:h2h.n?`${h2h.n} partidos · ${h2h.avgTotal} goles`:'SIN MUESTRA',state:h2h.n>=3?'ok':h2h.n?'warn':'bad'});
+
+ // Choose only after comparing signals, not simply the first market.
+ const positive=signals.filter(x=>x.state==='ok').length;
+ const negative=signals.filter(x=>x.state==='bad').length;
+ const dataCount=hf.n+af.n+h2h.n;
+ const quality=dataCount>=10?'BUENA':dataCount>=5?'MEDIA':dataCount>=1?'LIMITADA':'NO_APTA';
+
+ // Prefer a candidate supported by the strongest independent signals.
+ let primary=null;
+ if(candidates.length){
+   const scored=candidates.map(c=>{
+     const txt=c.pick.toUpperCase();
+     let score=0;
+     if(apiOU && parsed.line!=null && String(apiOU).toUpperCase().includes(txt.split(' ')[0]))score+=2;
+     if(c.market==='Over/Under'){
+       score+=Math.min(4,Math.round(Math.abs(targetTotal-parsed.line)*4));
+     }else score+=Math.min(4,Math.round(Math.abs(marginExp+(parsed.handicap||0))*4));
+     score+=positive*.35-negative*.45;
+     return {...c,score};
+   }).sort((a,b)=>b.score-a.score);
+   primary=scored[0];
+ }
+
+ // No-bet gate: insufficient data or contradictory/weak edge.
+ const edgeOK=primary && (primary.market==='Over/Under'
+   ? Math.abs(targetTotal-(parsed.line??targetTotal))>=.18
+   : Math.abs(marginExp+(parsed.handicap||0))>=.18);
+ const enough=quality!=='NO_APTA' && positive>=1 && edgeOK;
+ if(!enough){
+   primary={market:marketLabel(parsed),pick:'SIN APUESTA',reason:'Las señales disponibles no superan el umbral mínimo de evidencia o son contradictorias. Se conserva la línea, pero no se fuerza una selección.'};
+ }
+ const prior=learningProfile(parsed);
+ let confidence=42;
+ if(primary.pick!=='SIN APUESTA'){
+   confidence=52+Math.min(20,positive*5)-Math.min(12,negative*4);
+   const edge=parsed.line!=null?Math.abs(targetTotal-parsed.line):Math.abs(marginExp+(parsed.handicap||0));
+   confidence+=Math.min(15,edge*10);
+   if(h2h.n>=3)confidence+=3;
+   if(hf.n>=4&&af.n>=4)confidence+=5;
+   if(prior.bucketRate!=null&&prior.sample>=3)confidence=confidence*.72+prior.bucketRate*.28;
+ } else confidence=40;
+ confidence=Math.max(0,Math.min(95,Math.round(confidence)));
+
+ const reasons=[
+   `Estado: ${live?`EN VIVO · ${match.minute||'?'}' · ${match.homeScore}-${match.awayScore}`:'PREPARTIDO · fixture identificado'}`,
+   `Proyección: ${totalExp} goles; ${live?`proyección final en vivo ${targetTotal}`:'base prepartido'} frente a la línea recibida ${parsed.line??'no indicada'}.`,
+   `Forma: ${match.home} ${hf.avgGF} GF / ${hf.avgGA} GC; ${match.away} ${af.avgGF} GF / ${af.avgGA} GC.`,
+   h2h.n?`H2H: ${h2h.n} partidos, promedio ${h2h.avgTotal} goles.`:'H2H: sin muestra suficiente.',
+   apiOU?`Señal externa: ${apiOU}.`:'Señal externa Over/Under: no disponible.',
+   prior.bucketRate!=null?`Patrón histórico de esta familia: ${prior.bucketRate}% sobre ${prior.sample} casos.`:'Patrón histórico: muestra insuficiente.',
+   `Regla V40: ${primary.pick==='SIN APUESTA'?'no se fuerza selección cuando la evidencia es insuficiente.':'la selección debe superar el umbral de evidencia antes de congelarse.'}`
+ ];
+ return {
+   homeForm:hf,awayForm:af,h2h,totalExpected:totalExp,marginExpected:marginExp,
+   liveProjection:lp,candidates,primary,confidence,
+   checks:{line:parsed.line,handicap:parsed.handicap},
+   reasons,signals,dataQuality:quality,
+   learningPrior:prior,
+   decisionMode:live?'LIVE':'PREMATCH',
+   signalScore:{positive,negative,total:signals.length},
+   noBet:primary.pick==='SIN APUESTA'
+ };
+}
+
 function applyVoid(s,reason){s.settlement='DEVUELTA';s.settlementDetail=`Apuesta devuelta: ${reason||'evento cancelado o aplazado.'}`;const pp=state.preds.find(z=>z.scanId===s.id);if(pp)pp.settlement='DEVUELTA'}
 function saveScan(scan){state.scans.unshift(scan);state.scans=state.scans.slice(0,100);store.set('lsp_scans',state.scans)}
 function updateScannerMetrics(){
@@ -753,13 +972,101 @@ function scanMatchesRange(scan){
  return true;
 }
 function scanStatusMatch(s){const st=s.match?.status||'UNKNOWN';if(state.scanStatus==='all')return true;if(state.scanStatus==='LIVE')return st==='LIVE';if(state.scanStatus==='UPCOMING')return st==='UPCOMING';if(state.scanStatus==='PENDIENTE')return !s.settlement||s.settlement==='PENDIENTE';if(state.scanStatus==='SETTLED')return ['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement);return true}
-function renderScanner(){
- updateScannerMetrics();const box=$('#scannerResults');
- $$('.scanner-range-row [data-scan-range]').forEach(x=>x.classList.toggle('active',x.dataset.scanRange===state.scanRange));$$('[data-scan-status]').forEach(x=>x.classList.toggle('active',x.dataset.scanStatus===state.scanStatus));
- const q=String($('#searchBox')?.value||'').trim().toLowerCase();const rows=(state.scans||[]).filter(scanMatchesRange).filter(scanStatusMatch).filter(x=>!q||String(x.parsed?.raw||'').toLowerCase().includes(q)||String(x.parsed?.home||'').toLowerCase().includes(q)||String(x.parsed?.away||'').toLowerCase().includes(q));
- if(!rows.length){box.innerHTML='<div class="empty">No hay análisis que coincidan con los filtros.</div>';return}
- box.innerHTML=rows.map(s=>{const i=state.scans.indexOf(s),a=s.analysis||{},live=s.match?.status==='LIVE',settled=['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement);const stateClass=live?'scan-state-live':s.match?.status==='UPCOMING'?'scan-state-upcoming':s.match?.status==='FINISHED'?'scan-state-finished':s.match?.status==='CANCELLED'||s.match?.status==='POSTPONED'?'scan-state-void':'';return `<div class="card decision-card"><div class="match-head"><span class="sport-chip">${live?'◉ EN VIVO':s.match?.status==='UPCOMING'?'◌ PRÓXIMO':'⌁ SCANNER'} · ${esc(s.provider||'LOCAL')}</span><span class="tag ${stateClass}">${esc(s.match?fixtureStateLabel(s.match):'SIN FIXTURE')}</span></div><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b style="font-size:12px">${esc(s.parsed.home)} vs ${esc(s.parsed.away)}</b><div class="small">Entrada: ${esc(s.parsed.raw)}</div></div><span class="line-chip">${esc(a.primary?.market||marketLabel(s.parsed))}</span></div><div style="margin-top:10px"><div class="small">SELECCIÓN AUTOMÁTICA</div><div class="decision-pick">${esc(a.primary?.pick||s.snapshot.prediction)}</div><div class="confidence-meter"><i style="width:${Math.min(100,Number(a.confidence??s.snapshot.confidence)||0)}%"></i></div><div class="small" style="margin-top:4px">Confianza analítica: ${esc(a.confidence??s.snapshot.confidence)}% · calidad: ${esc(a.dataQuality||'—')}</div></div><div class="reason-list">${(a.reasons||[a.primary?.reason||s.snapshot.reason]).slice(0,4).map(x=>`<div>${esc(x)}</div>`).join('')}</div><div class="result" style="margin-top:9px"><b class="${s.settlement==='GANADA'?'win':s.settlement==='PERDIDA'?'loss':s.settlement==='PUSH'?'push':s.settlement==='DEVUELTA'?'void':''}">${esc(s.settlement||'PENDIENTE')}</b> <span class="small">${esc(s.settlementDetail||'Seguimiento activo')}</span></div><button class="ghost" data-scan-detail="${i}" style="width:100%;margin-top:8px">VER FUNDAMENTACIÓN COMPLETA</button>${s.match?.id&&!settled?`<button class="ghost refresh-real" data-refresh-scan="${i}" style="width:100%;margin-top:6px">↻ ACTUALIZAR ESTADO Y DATOS</button>`:''}</div>`}).join('');
+
+function scanMarketMatch(s){
+ const m=marketLabel(s.parsed||{});
+ return state.scanMarket==='all'||m.includes(state.scanMarket);
 }
+function scanQualityMatch(s){
+ const q=s.analysis?.dataQuality||s.featureSnapshot?.dataQuality||'NO_APTA';
+ return state.scanQuality==='all'||q===state.scanQuality;
+}
+function scanSignalCount(s){return Number(s.analysis?.signalScore?.positive||0)}
+function getPatternStats(){
+ const done=settledScans().filter(s=>s.featureSnapshot);
+ const patterns=[];
+ const groups=[
+  ['OVER','Over',s=>marketLabel(s.parsed).includes('OVER')],
+  ['UNDER','Under',s=>marketLabel(s.parsed).includes('UNDER')],
+  ['HÁNDICAP','Hándicap',s=>marketLabel(s.parsed).includes('HÁNDICAP')],
+  ['LIVE','Live',s=>s.featureSnapshot.status==='LIVE'],
+  ['PREMATCH','Prepartido',s=>s.featureSnapshot.status==='UPCOMING'||s.featureSnapshot.status==='UNKNOWN'],
+  ['HIGH_EDGE','Edge alto',s=>Number(s.featureSnapshot.edge||0)>=.5],
+  ['HIGH_DATA','Datos altos',s=>(s.featureSnapshot.dataQuality||'')==='BUENA']
+ ];
+ for(const [id,label,fn] of groups){
+   const a=done.filter(fn); if(a.length<3)continue;
+   const score=Math.round(a.reduce((n,s)=>n+outcomeScore(s),0)/a.length*100);
+   patterns.push({id,label,n:a.length,score});
+ }
+ return patterns.sort((a,b)=>b.n-a.n);
+}
+function renderScannerPatterns(){
+ const box=$('#scannerPatterns'); if(!box)return;
+ const patterns=getPatternStats();
+ if(!patterns.length){box.innerHTML='<div class="empty">Aún no hay suficientes resultados liquidados para detectar patrones.</div>';return}
+ box.innerHTML=patterns.slice(0,8).map(p=>`<div class="scanner-pattern"><div><b>${esc(p.label)}</b><span>${p.n} casos cerrados · patrón descriptivo, no garantía futura</span></div><strong>${p.score}%</strong></div>`).join('');
+ $('#scanPatterns').textContent=patterns.length;
+}
+
+function renderScanner(){
+ const box=$('#scannerResults'); if(!box)return;
+ $$('.scanner-status-filter [data-scan-status]').forEach(x=>x.classList.toggle('active',x.dataset.scanStatus===state.scanStatus));
+ $$('[data-scan-market]').forEach(x=>x.classList.toggle('active',x.dataset.scanMarket===state.scanMarket));
+ $$('[data-scan-quality]').forEach(x=>x.classList.toggle('active',x.dataset.scanQuality===state.scanQuality));
+ $$('.scanner-range-row [data-scan-range]').forEach(x=>x.classList.toggle('active',x.dataset.scanRange===state.scanRange));
+ updateScannerMetrics();
+
+ const q=String($('#searchBox')?.value||'').toLowerCase().trim();
+ const rows=state.scans.map((s,i)=>({s,i}))
+  .filter(({s})=>scanMatchesRange(s))
+  .filter(({s})=>scanStatusMatch(s))
+  .filter(({s})=>scanMarketMatch(s))
+  .filter(({s})=>scanQualityMatch(s))
+  .filter(({s})=>!q || `${s.parsed?.home||''} ${s.parsed?.away||''} ${s.parsed?.raw||''}`.toLowerCase().includes(q));
+
+ const signals=rows.reduce((n,x)=>n+scanSignalCount(x.s),0);
+ $('#scanVisible').textContent=rows.length;
+ $('#scanSignals').textContent=signals;
+
+ if(!rows.length){
+  box.innerHTML='<div class="empty">No hay análisis que coincidan con los filtros automáticos actuales.</div>';
+  renderScannerPatterns(); return;
+ }
+ box.innerHTML=rows.map(({s,i})=>{
+   const a=s.analysis||{}, settled=['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement);
+   const quality=a.dataQuality||'NO_APTA';
+   const noBet=a.noBet||a.primary?.pick==='SIN APUESTA';
+   const stateLabel=s.match?fixtureStateLabel(s.match):'SIN FIXTURE';
+   const pick=a.primary?.pick||s.snapshot?.prediction||'SIN SEÑAL';
+   return `<div class="card ${noBet?'scanner-no-bet':''}">
+    <div class="match-head">
+      <span class="sport-chip">SC-${String(i+1).padStart(3,'0')} · ${esc(s.provider||'LOCAL')}</span>
+      <span class="real-state ${s.match?.status==='LIVE'?'live':s.match?.status==='FINISHED'?'final':s.match?.status==='UPCOMING'?'pending':''}"><i class="state-dot"></i>${esc(stateLabel)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+      <div><b style="font-size:12px">${esc(s.parsed?.home||'Entrada')} vs ${esc(s.parsed?.away||'')}</b><div class="small">Entrada original: ${esc(s.parsed?.raw||'')}</div></div>
+      <span class="line-chip">${esc(a.primary?.market||marketLabel(s.parsed))}</span>
+    </div>
+    <div class="scanner-decision-meta">
+      <span class="${quality==='BUENA'?'green':quality==='MEDIA'?'yellow':''}">DATOS ${esc(quality)}</span>
+      <span>${esc(a.decisionMode||'UNKNOWN')}</span>
+      <span>${esc(a.signalScore?.positive||0)} señales +</span>
+      <span>${esc(a.signalScore?.negative||0)} en contra</span>
+    </div>
+    <div style="margin-top:10px"><div class="small">DECISIÓN CONGELADA</div><div class="decision-pick">${esc(pick)}</div>
+      <div class="confidence-meter"><i style="width:${Math.min(100,Number(a.confidence??s.snapshot?.confidence)||0)}%"></i></div>
+      <div class="small" style="margin-top:4px">Confianza: ${esc(a.confidence??s.snapshot?.confidence??0)}% · línea recibida: ${esc(s.parsed?.lineText??s.parsed?.line??s.parsed?.handicap??'—')}</div>
+    </div>
+    <div class="reason-list">${(a.reasons||[a.primary?.reason||s.snapshot?.reason]).slice(0,5).map(x=>`<div>${esc(x)}</div>`).join('')}</div>
+    <div class="result" style="margin-top:9px"><b class="${s.settlement==='GANADA'?'win':s.settlement==='PERDIDA'?'loss':s.settlement==='PUSH'?'push':s.settlement==='DEVUELTA'?'void':''}">${esc(s.settlement||'PENDIENTE')}</b> <span class="small">${esc(s.settlementDetail||'Seguimiento activo')}</span></div>
+    <button class="ghost" data-scan-detail="${i}" style="width:100%;margin-top:8px">VER FUNDAMENTACIÓN COMPLETA</button>
+    ${s.match?.id&&!settled?`<button class="ghost refresh-real" data-refresh-scan="${i}" style="width:100%;margin-top:6px">↻ ACTUALIZAR ESTADO Y DATOS</button>`:''}
+   </div>`;
+ }).join('');
+ renderScannerPatterns();
+}
+
 function fixtureStatus(st){
  const x=String(st||'').toUpperCase();
  if(['FT','AET','PEN','AWD','WO','ABD','CANC','CANCELLED'].includes(x))return ['CANC','CANCELLED'].includes(x)?'CANCELLED':'FINISHED';
@@ -864,14 +1171,16 @@ async function analyze(){
  const btn=$('#analyzeBtn');if(btn){btn.disabled=true;btn.textContent='⌁ ANALIZANDO…'}let made=0;
  for(const r of raw){const p=parseLine(r);if(!p||p.error){saveScan({id:'scan_'+Date.now()+'_'+made,parsed:{raw:r,home:'Entrada',away:'inválida'},snapshot:{prediction:'Entrada inválida',confidence:0,frozenAt:new Date().toISOString()},settlement:'ERROR',settlementDetail:p?.error||'Formato inválido',createdAt:new Date().toISOString()});continue}
   let snap=prediction(p),match=findDemoMatch(p),provider='DEMO',research={};
-  if(state.apiKey){try{const online=await resolveOnline(p);if(online){match=online.match;research=online.research||{};const a=buildResearch(p,match,research);snap={...snap,prediction:a.primary.pick,confidence:a.confidence,reason:a.reasons.join(' '),frozenAt:new Date().toISOString(),learningPrior:a.learningPrior,modelVersion:'V38-SCANNER-ENGINE-01'};provider='API-Football'}}catch(e){provider='API-Football · '+normalizeApiError(e);research={providerError:normalizeApiError(e)}}}
-  const analysis=match?buildResearch(p,match,research):{primary:{market:marketLabel(p),pick:snap.prediction,reason:'Sin fixture identificado todavía.'},confidence:snap.confidence,reasons:[snap.reason],dataQuality:'SIN DATOS',decisionMode:'UNKNOWN',learningPrior:snap.learningPrior};
+  if(state.apiKey){try{const online=await resolveOnline(p);if(online){match=online.match;research=online.research||{};const a=buildResearch(p,match,research);snap={...snap,prediction:a.primary.pick,confidence:a.confidence,reason:a.reasons.join(' '),frozenAt:new Date().toISOString(),learningPrior:a.learningPrior,modelVersion:'V40-SCANNER-PRO-01'};provider='API-Football'}}catch(e){provider='API-Football · '+normalizeApiError(e);research={providerError:normalizeApiError(e)}}}
+  const analysis=match?buildResearch(p,match,research):{primary:{market:marketLabel(p),pick:'SIN APUESTA',reason:'Sin fixture identificado todavía. No se fuerza una selección sin verificar el partido.'},confidence:0,reasons:['El fixture real no fue identificado.','La línea original se conserva para reintentar la búsqueda.','No se fuerza una selección con datos insuficientes.'],dataQuality:'NO_APTA',decisionMode:'UNKNOWN',learningPrior:snap.learningPrior,noBet:true,signalScore:{positive:0,negative:0,total:0}};
   if(match&&match.status==='CANCELLED'||match?.status==='POSTPONED'){} 
   let settlement='PENDIENTE',detail=match?'Seguimiento automático activo.':'Pendiente de identificar el fixture real.';
   if(match&&['CANCELLED','POSTPONED'].includes(match.status)){settlement='DEVUELTA';detail=`Apuesta devuelta automáticamente: ${fixtureStateLabel(match)}.`}
   else if(match&&match.status==='FINISHED'){const x=settleSelected(p,match,analysis);if(x.settlement&&x.settlement!=='PENDIENTE'){settlement=x.settlement==='WIN'?'GANADA':x.settlement==='LOSS'?'PERDIDA':x.settlement==='PUSH'?'PUSH':x.settlement.replace('HALF-','MEDIA-');detail=`Liquidación automática de la selección ${x.selection||''} · total ${x.total??'-'} · margen ${x.margin??'-'}`}}
   else if(match&&match.status==='LIVE')detail=`Seguimiento EN VIVO: ${match.homeScore}-${match.awayScore} · ${match.minute||'?'}' · la selección no se reescribe con el marcador.`;
-  const scan={id:'scan_'+Date.now()+'_'+made,parsed:p,snapshot:snap,match,settlement,settlementDetail:detail,createdAt:new Date().toISOString(),provider,analysis,research,featureSnapshot:{status:match?.status||'UNKNOWN',minute:match?.minute||0,score:[match?.homeScore??null,match?.awayScore??null],line:p.line,handicap:p.handicap,handicapTeam:p.handicapTeam,decision:analysis.primary?.pick,confidence:analysis.confidence??snap.confidence,market:marketLabel(p),dataQuality:analysis.dataQuality,model:'V38-SCANNER-ENGINE-01'}};
+  const scan={id:'scan_'+Date.now()+'_'+made,parsed:p,snapshot:snap,match,settlement,settlementDetail:detail,createdAt:new Date().toISOString(),provider,analysis,research,featureSnapshot:{status:match?.status||'UNKNOWN',minute:match?.minute||0,score:[match?.homeScore??null,match?.awayScore??null],line:p.line,handicap:p.handicap,handicapTeam:p.handicapTeam,decision:analysis.primary?.pick,confidence:analysis.confidence??snap.confidence,market:marketLabel(p),dataQuality:analysis.dataQuality,model:'V40-SCANNER-PRO-01',
+edge:p.line!=null?Math.abs(Number(analysis.totalExpected||0)-Number(p.line)):Math.abs(Number(analysis.marginExpected||0)+Number(p.handicap||0))
+}};
   saveScan(scan);state.preds.unshift({id:'pred_'+scan.id,input:r,prediction:snap.prediction,confidence:snap.confidence,frozenAt:snap.frozenAt,reason:snap.reason,settlement,scanId:scan.id});state.preds=state.preds.slice(0,100);store.set('lsp_preds',state.preds);made++
  }
  $('#scannerInput').value='';if(btn){btn.disabled=false;btn.textContent='⚡ ANALIZAR LÍNEA'}renderScanner();renderPred();renderStats();toast(`${made} partido(s) procesado(s). Selección congelada y seguimiento activo.`)
@@ -940,6 +1249,10 @@ function bind(){
   if(sr){state.scanRange=sr.dataset.scanRange;renderScanner();return}
   const ss=e.target.closest('[data-scan-status]');
   if(ss){state.scanStatus=ss.dataset.scanStatus;renderScanner();return}
+  const sm=e.target.closest('[data-scan-market]');
+  if(sm){state.scanMarket=sm.dataset.scanMarket;renderScanner();return}
+  const sq=e.target.closest('[data-scan-quality]');
+  if(sq){state.scanQuality=sq.dataset.scanQuality;renderScanner();return}
   const fr=e.target.closest('[data-final-range]');
   if(fr){state.finalFilter=fr.dataset.finalRange;renderFinal();return}
   const p=e.target.closest('[data-page]');
@@ -962,7 +1275,7 @@ async function boot(){renderSports();bindArena();bindScannerExamples();bind();se
 // V39 mobile update: force the PWA to check the newest service worker and reload once after activation.
 (function(){
   if(!('serviceWorker' in navigator)) return;
-  const SW_URL='./sw.js?v=20260924-1345';
+  const SW_URL='./sw.js?v=20260924-1500';
   navigator.serviceWorker.register(SW_URL,{updateViaCache:'none'}).then(reg=>{
     reg.update().catch(()=>{});
     if(reg.waiting){ reg.waiting.postMessage({type:'SKIP_WAITING'}); }
