@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Line Scanner Pro">
-<link rel="manifest" href="manifest.webmanifest?v=20260924-1500">
+<link rel="manifest" href="manifest.webmanifest?v=20260924-1600">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>Line Scanner Pro V40 Scanner Pro · Auto Filters · Learning Engine</title>
 <style>
@@ -1272,10 +1272,10 @@ function bind(){
 async function boot(){renderSports();bindArena();bindScannerExamples();bind();setArenaSport(state.visualSport,false);startVisualRotation();updateScannerMetrics();await renderHome();renderLive();renderFinal();renderPred();renderScanner();renderStats();renderSettings();renderApiMatrix();selfTests();if(state.apiKey)refreshPending();setInterval(()=>{$('#clock').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});},10000);setInterval(()=>{if(state.apiKey){refreshPending();if(state.page==='home')renderHome();if(state.page==='live')renderLive();if(state.page==='final')renderFinal()}},30000)}window.LineScannerPro={VERSION,parseLine,settleGoals,settleHandicap,splitQuarter,selfTests,analyze,testApi};boot();
 })();
 </script><script>
-// V39 mobile update: force the PWA to check the newest service worker and reload once after activation.
+// V40 mobile update: force the PWA to check the newest service worker and reload once after activation.
 (function(){
   if(!('serviceWorker' in navigator)) return;
-  const SW_URL='./sw.js?v=20260924-1500';
+  const SW_URL='./sw.js?v=20260924-1600';
   navigator.serviceWorker.register(SW_URL,{updateViaCache:'none'}).then(reg=>{
     reg.update().catch(()=>{});
     if(reg.waiting){ reg.waiting.postMessage({type:'SKIP_WAITING'}); }
