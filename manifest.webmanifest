@@ -1,10 +1,1 @@
-{
-  "name":"Line Scanner Pro",
-  "short_name":"Line Scanner Pro",
-  "start_url":"./",
-  "display":"standalone",
-  "orientation":"portrait",
-  "background_color":"#020912",
-  "theme_color":"#061522",
-  "icons":[]
-}
+{"name":"Line Scanner Pro V34","short_name":"Line Scanner Pro","start_url":"./","display":"standalone","orientation":"portrait","background_color":"#020813","theme_color":"#03111f","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
