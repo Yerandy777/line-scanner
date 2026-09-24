@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="28" fill="#03111f"/><circle cx="64" cy="64" r="42" fill="none" stroke="#00eaff" stroke-width="6"/><path d="M42 74l14-30 12 20 18-10" fill="none" stroke="#00f0a8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="106" text-anchor="middle" font-family="Arial" font-weight="900" font-size="14" fill="#eaf6ff">LS PRO</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="110" fill="#020a16"/>
+<circle cx="256" cy="256" r="165" fill="none" stroke="#00e7ff" stroke-width="14"/>
+<circle cx="256" cy="256" r="115" fill="none" stroke="#00f0a8" stroke-width="10"/>
+<path d="M256 112v288M112 256h288" stroke="#00e7ff" stroke-width="10" opacity=".75"/>
+<circle cx="256" cy="256" r="34" fill="#00f0a8"/>
+</svg>

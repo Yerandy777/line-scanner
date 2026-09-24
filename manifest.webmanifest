@@ -1,1 +1,13 @@
-{"name":"Line Scanner Pro V34","short_name":"Line Scanner Pro","start_url":"./","display":"standalone","orientation":"portrait","background_color":"#020813","theme_color":"#03111f","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "Line Scanner Pro",
+  "short_name": "Line Scanner Pro",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020a16",
+  "theme_color": "#03111f",
+  "description": "Line Scanner Pro — resultados, análisis, estadísticas y seguimiento de partidos.",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
