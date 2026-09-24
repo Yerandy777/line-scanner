@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Line Scanner Pro">
 <link rel="manifest" href="manifest.webmanifest?v=20260924-1500">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<title>Line Scanner Pro V40 Scanner Pro · Auto Filters · Learning Engine</title>
+<title>Line Scanner Pro · Scanner Pro Multideporte</title>
 <style>
 :root{
  --bg:#020a16;--bg2:#031426;--panel:#061b2d;--panel2:#08243a;--line:#0b5c86;
@@ -324,80 +324,27 @@ body{background:#000814}
 </section>
 
 <section class="screen scanner-screen" data-page="scanner">
- <header class="top"><div class="brand"><button class="icon-btn back-btn" data-back="1" aria-label="Atrás">‹</button><div class="scanner-logo">⌁</div><div><div class="title">Scanner Pro</div><div class="sub">Análisis de líneas · fútbol · en línea</div></div><span class="api-pill scanner-live-pill">● ONLINE</span></div></header>
+ <header class="top"><div class="brand"><button class="icon-btn back-btn" data-back="1" aria-label="Atrás">‹</button><div class="scanner-logo">⌁</div><div><div class="title">Scanner Pro</div><div class="sub">Análisis multideporte de líneas</div></div><span class="api-pill scanner-live-pill">● ONLINE</span></div></header>
 
- <div class="scanner-hero">
-   <div class="scanner-radar"><div class="radar-ring r1"></div><div class="radar-ring r2"></div><div class="radar-sweep"></div><span>⌁</span></div>
-   <div><b>LINE SCANNER</b><strong>Detecta · analiza · verifica</strong><small>Conserva hándicap, goles y mercado. Después intenta identificar el partido en la API.</small></div>
+ <div class="card scanner-input-card" style="margin-top:14px">
+   <div class="scanner-card-head"><div><div class="form-title">PARTIDO</div><div class="small">Escribe uno o varios partidos con su hándicap o línea.</div></div></div>
+   <textarea id="scannerInput" class="textarea" style="min-height:105px" placeholder="Ejemplo:
+Real Madrid vs Barcelona -0.5 (2.5)
+Lakers vs Celtics +3.5 (224.5)"></textarea>
+   <button class="primary scan-main-btn" id="analyzeBtn" style="width:100%;margin-top:10px">⚡ ANALIZAR</button>
  </div>
 
- <div class="scanner-metrics">
-   <div><b id="scanCount">0</b><span>ANÁLISIS</span></div>
-   <div><b id="scanPending">0</b><span>PENDIENTES</span></div>
-   <div><b id="scanWins">0</b><span>GANADAS</span></div>
-   <div><b id="scanRate">—</b><span>EFECTIVIDAD</span></div>
+ <div id="scannerResults" style="margin-top:14px"></div>
+
+ <div class="card scanner-learning-card" style="margin-top:14px">
+   <div class="section-head"><h2>MOTOR DE APRENDIZAJE</h2><span class="scanner-status learning-badge">ACTIVO</span></div>
+   <div class="small">Busca patrones similares en experiencias ya finalizadas y los utiliza como contexto para nuevos análisis.</div>
  </div>
 
- <div class="card scanner-search-card"><input id="searchBox" class="input" placeholder="⌕  Buscar equipos, ligas o torneos..."></div>
- <div class="section-head"><h2>Filtros rápidos</h2><span class="small scanner-v40-badge">AUTO · V40</span></div>
- <div class="scanner-filter-wrap">
-   <div class="scanner-filter-label">Estado del análisis</div>
-   <div class="scanner-filter-row scanner-status-filter">
-     <button class="pill active" data-scan-status="all">Todos</button>
-     <button class="pill" data-scan-status="LIVE">En vivo</button>
-     <button class="pill" data-scan-status="UPCOMING">Próximos</button>
-     <button class="pill" data-scan-status="PENDIENTE">Pendientes</button>
-     <button class="pill" data-scan-status="SETTLED">Cerrados</button>
-   </div>
-   <div class="scanner-filter-label">Mercado detectado automáticamente</div>
-   <div class="scanner-filter-row">
-     <button class="pill active" data-scan-market="all">Todos</button>
-     <button class="pill" data-scan-market="OVER">Over</button>
-     <button class="pill" data-scan-market="UNDER">Under</button>
-     <button class="pill" data-scan-market="HÁNDICAP">Hándicap</button>
-     <button class="pill" data-scan-market="MIXTO">Mixto</button>
-   </div>
-   <div class="scanner-filter-label">Calidad / señal</div>
-   <div class="scanner-filter-row">
-     <button class="pill active" data-scan-quality="all">Todas</button>
-     <button class="pill" data-scan-quality="BUENA">Datos altos</button>
-     <button class="pill" data-scan-quality="MEDIA">Datos medios</button>
-     <button class="pill" data-scan-quality="LIMITADA">Datos limitados</button>
-     <button class="pill" data-scan-quality="NO_APTA">No apta</button>
-   </div>
-   <div class="scanner-filter-label">Periodo</div>
-   <div class="scanner-filter-row scanner-range-row">
-     <button class="pill active" data-scan-range="today">Hoy</button>
-     <button class="pill" data-scan-range="7d">7 días</button>
-     <button class="pill" data-scan-range="30d">30 días</button>
-     <button class="pill" data-scan-range="all">Todos</button>
-   </div>
- </div>
- <div class="scanner-auto-summary">
-   <div class="metric"><b id="scanVisible">0</b><span>VISIBLES</span></div>
-   <div class="metric"><b id="scanSignals">0</b><span>SEÑALES</span></div>
-   <div class="metric"><b id="scanPatterns">0</b><span>PATRONES</span></div>
- </div>
-
- <div class="card scanner-input-card">
-   <div class="scanner-card-head"><div><div class="form-title">Scanner 01</div><div class="small">Una línea por partido · se conserva exactamente tu entrada</div></div><span class="scanner-status">READY</span></div>
-   <div class="market-strip"><span>⚽ FÚTBOL</span><span>↕ HÁNDICAP</span><span>◉ GOLES</span><span>◎ H2H</span><span>◌ FORMA</span></div>
-   <textarea id="scannerInput" class="textarea" placeholder="Real Madrid vs Barcelona -0.5 (2-2.5)"></textarea>
-   <div class="scanner-examples"><button data-scan-example="Real Madrid vs Barcelona -0.5 (2-2.5)">Madrid · H -0.5 · 2-2.5</button><button data-scan-example="Manchester City vs Arsenal -1.0">City · H -1.0</button><button data-scan-example="Inter de Milán vs AC Milan (2-3)">Inter · G 2-3</button></div>
-   <div class="actions"><button class="primary scan-main-btn" id="analyzeBtn">⚡ ANALIZAR LÍNEA</button><button class="ghost" id="demoScanBtn">CARGAR DEMO</button></div>
-   <div class="scanner-footnote"><span>✓ Entrada preservada</span><span>✓ Modelo adaptativo</span><span>✓ Verificación online</span></div>
- </div>
-
- <div class="card scanner-engine-card"><div class="section-head"><h2>Motor de decisión</h2><span class="scanner-status learning-badge">APRENDIZAJE ACTIVO</span></div><div class="small">La entrada manda: V40 conserva exactamente tu línea, identifica el fixture, determina si está en vivo o próximo, contrasta múltiples señales y aplica un umbral de evidencia. Si no hay evidencia suficiente, devuelve SIN APUESTA. La selección queda congelada antes del resultado.</div><div class="engine-grid"><div class="engine-cell"><b>1 · IDENTIFICAR</b><span>Equipo, rival, competición y fixture real.</span></div><div class="engine-cell"><b>2 · CONTEXTUALIZAR</b><span>En vivo: marcador y minuto. Próximo: contexto prepartido.</span></div><div class="engine-cell"><b>3 · CONTRASTAR</b><span>Forma, H2H, predicción del proveedor y línea recibida.</span></div><div class="engine-cell"><b>4 · DECIDIR</b><span>Over, Under o Hándicap con razones y confianza.</span></div><div class="scanner-signal-grid"><div class="scanner-signal ok"><b>① IDENTIFICAR</b><span>Fixture real, competición y estado.</span></div><div class="scanner-signal ok"><b>② CONTRASTAR</b><span>Forma, H2H, goles, señal externa y línea.</span></div><div class="scanner-signal ok"><b>③ FILTRAR</b><span>Calidad, contradicciones y umbral mínimo.</span></div><div class="scanner-signal warn"><b>④ DECIDIR</b><span>Over, Under, Hándicap o SIN APUESTA.</span></div></div></div>
-
- <div id="scannerResults"></div>
- <div class="card scanner-pattern-card">
-   <div class="section-head"><h2>Patrones detectados</h2><span class="scanner-status learning-badge">SOLO DATOS CERRADOS</span></div>
-   <div id="scannerPatterns"></div>
-   <div class="scanner-history-note">Los patrones se calculan únicamente con análisis ya liquidados. El resultado final nunca modifica el snapshot original; solo alimenta el histórico para futuros análisis.</div>
- </div>
-
- <div class="card scanner-diagnostic"><div class="section-head"><h2>Diagnóstico del Scanner</h2><button id="selfTestBtn">Ejecutar</button></div><div id="selfTest"></div></div>
+ <div id="scannerPatterns" style="display:none"></div>
+ <div id="selfTest" style="display:none"></div>
+ <div id="scanCount" style="display:none">0</div><div id="scanPending" style="display:none">0</div><div id="scanWins" style="display:none">0</div><div id="scanRate" style="display:none">—</div><div id="scanVisible" style="display:none">0</div><div id="scanSignals" style="display:none">0</div><div id="scanPatterns" style="display:none">0</div>
+ <div id="searchBox" style="display:none"></div>
 </section>
 
 <section class="screen" data-page="stats">
@@ -1024,62 +971,41 @@ function renderScannerPatterns(){
 
 function renderScanner(){
  const box=$('#scannerResults'); if(!box)return;
- $$('.scanner-status-filter [data-scan-status]').forEach(x=>x.classList.toggle('active',x.dataset.scanStatus===state.scanStatus));
- $$('[data-scan-market]').forEach(x=>x.classList.toggle('active',x.dataset.scanMarket===state.scanMarket));
- $$('[data-scan-quality]').forEach(x=>x.classList.toggle('active',x.dataset.scanQuality===state.scanQuality));
- $$('.scanner-range-row [data-scan-range]').forEach(x=>x.classList.toggle('active',x.dataset.scanRange===state.scanRange));
  updateScannerMetrics();
-
- const q=String($('#searchBox')?.value||'').toLowerCase().trim();
- const rows=state.scans.map((s,i)=>({s,i}))
-  .filter(({s})=>scanMatchesRange(s))
-  .filter(({s})=>scanStatusMatch(s))
-  .filter(({s})=>scanMarketMatch(s))
-  .filter(({s})=>scanQualityMatch(s))
-  .filter(({s})=>!q || `${s.parsed?.home||''} ${s.parsed?.away||''} ${s.parsed?.raw||''}`.toLowerCase().includes(q));
-
- const signals=rows.reduce((n,x)=>n+scanSignalCount(x.s),0);
- $('#scanVisible').textContent=rows.length;
- $('#scanSignals').textContent=signals;
-
+ const rows=(state.scans||[]).map((s,i)=>({s,i}));
  if(!rows.length){
-  box.innerHTML='<div class="empty">No hay análisis que coincidan con los filtros automáticos actuales.</div>';
-  renderScannerPatterns(); return;
+   box.innerHTML='<div class="empty" style="padding:18px;text-align:center">Introduce un partido y pulsa ANALIZAR.</div>';
+   return;
  }
  box.innerHTML=rows.map(({s,i})=>{
-   const a=s.analysis||{}, settled=['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement);
-   const quality=a.dataQuality||'NO_APTA';
-   const noBet=a.noBet||a.primary?.pick==='SIN APUESTA';
-   const stateLabel=s.match?fixtureStateLabel(s.match):'SIN FIXTURE';
-   const pick=a.primary?.pick||s.snapshot?.prediction||'SIN SEÑAL';
-   return `<div class="card ${noBet?'scanner-no-bet':''}">
-    <div class="match-head">
-      <span class="sport-chip">SC-${String(i+1).padStart(3,'0')} · ${esc(s.provider||'LOCAL')}</span>
-      <span class="real-state ${s.match?.status==='LIVE'?'live':s.match?.status==='FINISHED'?'final':s.match?.status==='UPCOMING'?'pending':''}"><i class="state-dot"></i>${esc(stateLabel)}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-      <div><b style="font-size:12px">${esc(s.parsed?.home||'Entrada')} vs ${esc(s.parsed?.away||'')}</b><div class="small">Entrada original: ${esc(s.parsed?.raw||'')}</div></div>
-      <span class="line-chip">${esc(a.primary?.market||marketLabel(s.parsed))}</span>
-    </div>
-    <div class="scanner-decision-meta">
-      <span class="${quality==='BUENA'?'green':quality==='MEDIA'?'yellow':''}">DATOS ${esc(quality)}</span>
-      <span>${esc(a.decisionMode||'UNKNOWN')}</span>
-      <span>${esc(a.signalScore?.positive||0)} señales +</span>
-      <span>${esc(a.signalScore?.negative||0)} en contra</span>
-    </div>
-    <div style="margin-top:10px"><div class="small">DECISIÓN CONGELADA</div><div class="decision-pick">${esc(pick)}</div>
-      <div class="confidence-meter"><i style="width:${Math.min(100,Number(a.confidence??s.snapshot?.confidence)||0)}%"></i></div>
-      <div class="small" style="margin-top:4px">Confianza: ${esc(a.confidence??s.snapshot?.confidence??0)}% · línea recibida: ${esc(s.parsed?.lineText??s.parsed?.line??s.parsed?.handicap??'—')}</div>
-    </div>
-    <div class="reason-list">${(a.reasons||[a.primary?.reason||s.snapshot?.reason]).slice(0,5).map(x=>`<div>${esc(x)}</div>`).join('')}</div>
-    <div class="result" style="margin-top:9px"><b class="${s.settlement==='GANADA'?'win':s.settlement==='PERDIDA'?'loss':s.settlement==='PUSH'?'push':s.settlement==='DEVUELTA'?'void':''}">${esc(s.settlement||'PENDIENTE')}</b> <span class="small">${esc(s.settlementDetail||'Seguimiento activo')}</span></div>
-    <button class="ghost" data-scan-detail="${i}" style="width:100%;margin-top:8px">VER FUNDAMENTACIÓN COMPLETA</button>
-    ${s.match?.id&&!settled?`<button class="ghost refresh-real" data-refresh-scan="${i}" style="width:100%;margin-top:6px">↻ ACTUALIZAR ESTADO Y DATOS</button>`:''}
+   const a=s.analysis||{};
+   const pick=a.primary?.pick||s.snapshot?.prediction||'SIN SELECCIÓN';
+   const conf=Number(a.confidence??s.snapshot?.confidence)||0;
+   const line=s.parsed?.lineText??s.parsed?.line??s.parsed?.handicap??'—';
+   const status=s.match?fixtureStateLabel(s.match):'PENDIENTE';
+   const live=s.match?.status==='LIVE';
+   const settled=['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement);
+   const candidates=(a.candidates||[]).slice(0,3);
+   return `<div class="card" style="margin-bottom:12px">
+     <div class="small" style="text-transform:uppercase;letter-spacing:.06em">${esc(s.match?.sport||s.sport||'MULTIDEPORTE')} · ${esc(status)}</div>
+     <h3 style="margin:6px 0">${esc(s.parsed?.home||'Partido')} vs ${esc(s.parsed?.away||'')}</h3>
+     ${live?`<div class="result"><b>🔴 LIVE</b> · ${esc(s.match?.homeScore??0)}-${esc(s.match?.awayScore??0)}${s.match?.minute?` · MIN ${esc(s.match.minute)}`:''}</div>`:''}
+     <div class="small" style="margin-top:5px">Línea: <b>${esc(line)}</b></div>
+     <div style="margin-top:14px"><div class="small">HÁNDICAP</div><b>${esc(candidates.find(c=>/HÁNDICAP/i.test(c.pick||c.market||''))?.pick||'—')}</b></div>
+     <div style="margin-top:10px"><div class="small">OVER</div><b>${esc(candidates.find(c=>/OVER/i.test(c.pick||c.market||''))?.pick||'—')}</b></div>
+     <div style="margin-top:10px"><div class="small">UNDER</div><b>${esc(candidates.find(c=>/UNDER/i.test(c.pick||c.market||''))?.pick||'—')}</b></div>
+     <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">
+       <div class="small">MEJOR OPCIÓN</div><div class="decision-pick">${esc(pick)}</div>
+       <div class="confidence-meter"><i style="width:${Math.min(100,conf)}%"></i></div>
+       <div class="small" style="margin-top:4px">${conf}% de confianza</div>
+     </div>
+     <div class="reason-list" style="margin-top:10px">${(a.reasons||[]).slice(0,3).map(x=>`<div>✓ ${esc(x)}</div>`).join('')}</div>
+     <div class="result" style="margin-top:12px"><b>${esc(s.settlement||'PENDIENTE')}</b>${s.settlementDetail?` <span class="small">${esc(s.settlementDetail)}</span>`:''}</div>
+     <button class="ghost" data-scan-detail="${i}" style="width:100%;margin-top:10px">VER ANÁLISIS COMPLETO</button>
+     ${s.match?.id&&!settled?`<button class="ghost refresh-real" data-refresh-scan="${i}" style="width:100%;margin-top:6px">↻ ACTUALIZAR</button>`:''}
    </div>`;
  }).join('');
- renderScannerPatterns();
 }
-
 function fixtureStatus(st){
  const x=String(st||'').toUpperCase();
  if(['FT','AET','PEN','AWD','WO','ABD','CANC','CANCELLED'].includes(x))return ['CANC','CANCELLED'].includes(x)?'CANCELLED':'FINISHED';
