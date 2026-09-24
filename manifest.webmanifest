@@ -6,8 +6,13 @@
   "orientation": "portrait",
   "background_color": "#020a16",
   "theme_color": "#03111f",
-  "description": "Line Scanner Pro — resultados, análisis, estadísticas y seguimiento de partidos.",
+  "description": "Line Scanner Pro — experiencia deportiva eléctrica, Scanner Pro y análisis en vivo.",
   "icons": [
-    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }
