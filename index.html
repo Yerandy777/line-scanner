@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Line Scanner Pro">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<title>Line Scanner Pro V36 Realtime Nav Fixed</title>
+<title>Line Scanner Pro V38 Scanner Pro Engine FIXED</title>
 <style>
 :root{
  --bg:#020a16;--bg2:#031426;--panel:#061b2d;--panel2:#08243a;--line:#0b5c86;
@@ -377,7 +377,7 @@ body{background:#000814}
 </div>
 <script>
 (function(){'use strict';
-const VERSION='V38 SCANNER PRO ENGINE';
+const VERSION='V38 SCANNER PRO ENGINE FIXED';
 const SPORTS=[['football','⚽','Fútbol'],['basketball','🏀','Baloncesto'],['baseball','⚾','Béisbol'],['hockey','🏒','Hockey'],['f1','🏎️','F1'],['mma','🥊','MMA'],['rugby','🏉','Rugby'],['volleyball','🏐','Voleibol'],['tennis','🎾','Tenis']];
 const API_CFG={
  football:{label:'Fútbol',base:'https://v3.football.api-sports.io',live:'/fixtures?live=all',upcoming:'/fixtures?date=',kind:'football'},
@@ -511,6 +511,79 @@ function bindArena(){
 function renderSports(){$('#sportGrid').innerHTML=SPORTS.map(x=>`<button class="sport sport-${x[0]}" data-sport="${x[0]}"><span class="ico">${x[1]}</span><b>${x[2]}</b><small>Ver en vivo / próximo</small></button>`).join('')}
 function todayISO(){const d=new Date();const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 function tomorrowISO(){const d=new Date(Date.now()+86400000);const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
+function normalizeName(s){
+ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(fc|cf|sc|afc|ac|club)\b/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+}
+function parseLine(raw){
+ const text=String(raw||'').trim();
+ if(!text)return {error:'Entrada vacía',raw:text};
+ const m=text.match(/^(.*?)\s+(?:vs\.?|v\.?|🆚|contra)\s+(.*)$/i);
+ if(!m)return {error:'Formato esperado: Equipo A vs Equipo B [hándicap] (línea de goles)',raw:text};
+ const home=m[1].trim(); let rest=m[2].trim();
+ let line=null,lineText=null,totalSide=null;
+ const lm=rest.match(/\(([^()]*)\)\s*$/);
+ if(lm){
+   lineText=lm[1].trim();rest=rest.slice(0,lm.index).trim();
+   const range=lineText.match(/([+-]?\d+(?:[\.,]\d+)?)\s*[-–]\s*([+-]?\d+(?:[\.,]\d+)?)/);
+   const nums=lineText.match(/[+-]?\d+(?:[\.,]\d+)?/g)||[];
+   if(range){const a=Number(range[1].replace(',','.')),b=Number(range[2].replace(',','.'));line=(a+b)/2;}
+   else if(nums.length>=1)line=Number(nums[0].replace(',','.'));
+   if(/\bunder\b|\bmenos\b/i.test(lineText))totalSide='UNDER';
+   else if(/\bover\b|\bmas\b|\bmás\b/i.test(lineText))totalSide='OVER';
+ }
+ let handicap=null,handicapTeam=null,away=rest;
+ const hm=rest.match(/(?:^|\s|[A-Za-z])([+-]\d+(?:[\.,]\d+)?)(?=\s|$)/);
+ if(hm){
+   handicap=Number(hm[1].replace(',','.'));
+   const token=hm[1], tokenPos=rest.indexOf(token), before=rest.slice(0,tokenPos).trim(), after=rest.slice(tokenPos+token.length).trim();
+   if(!before){handicapTeam='away';away=after;}
+   else if(!after){handicapTeam='home';away=before;}
+   else {handicapTeam='away';away=(before+' '+after).trim();}
+ }
+ if(!away)return {error:'No se pudo identificar el segundo equipo',raw:text};
+ return {raw:text,home,away,line,lineText,totalSide,handicap,handicapTeam};
+}
+function splitQuarter(n){
+ const x=Number(n); if(!Number.isFinite(x))return [];
+ const q=Math.round(x*4)/4, frac=Math.round((q-Math.floor(q))*100)/100;
+ if(Math.abs(frac-.25)<.001)return [q-.25,q+.25];
+ if(Math.abs(frac-.75)<.001)return [q-.25,q+.25];
+ return [q];
+}
+function settleHalf(r1,r2){
+ const a=String(r1),b=String(r2);
+ if(a==='WIN'&&b==='WIN')return 'WIN';
+ if(a==='LOSS'&&b==='LOSS')return 'LOSS';
+ if((a==='WIN'&&b==='LOSS')||(a==='LOSS'&&b==='WIN'))return 'PUSH';
+ if((a==='WIN'&&b==='PUSH')||(a==='PUSH'&&b==='WIN'))return 'HALF-WIN';
+ if((a==='LOSS'&&b==='PUSH')||(a==='PUSH'&&b==='LOSS'))return 'HALF-LOSS';
+ if((a==='HALF-WIN'&&b==='LOSS')||(a==='LOSS'&&b==='HALF-WIN'))return 'PUSH';
+ if((a==='HALF-LOSS'&&b==='WIN')||(a==='WIN'&&b==='HALF-LOSS'))return 'PUSH';
+ if(a===b)return a;
+ return 'PUSH';
+}
+function settleWhole(value){return value>0?'WIN':value<0?'LOSS':'PUSH'}
+function settleGoals(total,line,side){
+ const n=Number(total),q=Number(line); if(!Number.isFinite(n)||!Number.isFinite(q))return 'PUSH';
+ const parts=splitQuarter(q); const evalOne=x=>side==='under'?settleWhole(x-n):settleWhole(n-x);
+ if(parts.length===1)return evalOne(parts[0]);
+ return settleHalf(evalOne(parts[0]),evalOne(parts[1]));
+}
+function settleHandicap(margin,handicap){
+ const m=Number(margin),h=Number(handicap); if(!Number.isFinite(m)||!Number.isFinite(h))return 'PUSH';
+ const parts=splitQuarter(h), evalOne=x=>settleWhole(m+x);
+ if(parts.length===1)return evalOne(parts[0]);
+ return settleHalf(evalOne(parts[0]),evalOne(parts[1]));
+}
+function parseAndSettleDemo(parsed,score){
+ const total=(Number(score?.homeScore)||0)+(Number(score?.awayScore)||0),margin=(Number(score?.homeScore)||0)-(Number(score?.awayScore)||0),markets={};
+ if(parsed?.line!=null){const side=parsed.totalSide||'OVER';markets.total={result:settleGoals(total,parsed.line,side.toLowerCase()),side,line:parsed.line};}
+ if(parsed?.handicap!=null){const adj=(parsed.handicapTeam||'home')==='away'?-margin:margin;markets.handicap={result:settleHandicap(adj,parsed.handicap),team:parsed.handicapTeam||'home',line:parsed.handicap};}
+ const vals=Object.values(markets).map(x=>x.result).filter(Boolean);let settlement='PENDIENTE';
+ if(vals.length===1)settlement=vals[0];
+ else if(vals.length>1)settlement='MULTI';
+ return {settlement,markets,total,margin};
+}
 function isFinishedStatus(st){return ['FT','AET','PEN','FINISHED','COMPLETED','3'].includes(String(st||'').toUpperCase())}
 function isLiveStatus(st){return ['1H','2H','HT','ET','BT','P','LIVE','IN PLAY','INPLAY','Q1','Q2','Q3','Q4','OT'].includes(String(st||'').toUpperCase())}
 async function fetchScheduleSport(sport){const cfg=API_CFG[sport];if(!cfg?.upcoming)throw new Error(cfg?.kind==='unsupported'?'API NO DISPONIBLE':'SCHEDULE NO DISPONIBLE');const j=await apiRequestSport(sport,cfg.upcoming+todayISO());const rows=(j.response||[]).map(x=>mapGame(sport,x));state.online[sport]={ok:true,results:j.results??rows.length};return rows}
@@ -630,7 +703,7 @@ function learningProfile(p){
 }
 function prediction(parsed){
  const prior=learningProfile(parsed);let confidence=56;let pick='REVISAR LÍNEA';
- if(parsed.line!=null){const side=parsed.totalSide||'OVER';pick=`${side} ${parsed.line}`;confidence=58}
+ if(parsed.line!=null){const side=parsed.totalSide || (parsed.line!=null ? 'OVER' : null);if(side)pick=`${side} ${parsed.line}`;confidence=58}
  if(parsed.handicap!=null){const side=(parsed.handicapTeam||'home')==='home'?'LOCAL':'VISITANTE';pick=`HÁNDICAP ${side} ${parsed.handicap}`;confidence=Math.max(confidence,58)}
  if(prior.bucketRate!=null&&prior.sample>=3)confidence=confidence*.68+prior.bucketRate*.32;else if(prior.marketRate!=null&&prior.marketSample>=4)confidence=confidence*.82+prior.marketRate*.18;
  const c=Math.max(50,Math.min(95,Math.round(confidence)));const priorText=prior.bucketRate!=null?`Historial de la misma familia: ${prior.bucketRate}% en ${prior.sample} casos.`:prior.marketRate!=null?`Historial del mercado: ${prior.marketRate}% en ${prior.marketSample} casos.`:'Sin muestra histórica suficiente.';
