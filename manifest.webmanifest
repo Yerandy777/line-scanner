@@ -1,18 +1,12 @@
 {
-  "name": "Line Scanner Pro",
-  "short_name": "Line Scanner Pro",
-  "start_url": "./index.html#home",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#020a16",
-  "theme_color": "#03111f",
-  "description": "Line Scanner Pro — motor Scanner Pro adaptativo, filtros automáticos, análisis contextual y seguimiento real.",
-  "icons": [
-    {
-      "src": "icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ]
+  "name":"Line Scanner Pro",
+  "short_name":"Scanner Pro",
+  "start_url":"./index.html?v=20260924-1345",
+  "scope":"./",
+  "display":"standalone",
+  "orientation":"portrait",
+  "background_color":"#020a16",
+  "theme_color":"#03111f",
+  "description":"Line Scanner Pro — análisis deportivo y seguimiento de resultados.",
+  "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
 }
