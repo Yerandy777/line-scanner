@@ -49,3 +49,54 @@ body{background:#010711}
 /* V3 dynamic visual layer */
 .live-energy-banner{margin:0 7px 8px;padding:8px 10px;border:1px solid rgba(0,239,194,.55);border-radius:11px;background:linear-gradient(90deg,rgba(0,239,194,.16),rgba(0,83,140,.28),rgba(0,239,194,.08));box-shadow:0 0 22px rgba(0,220,190,.12),inset 0 0 20px rgba(0,200,255,.05);display:flex;align-items:center;gap:7px;font-size:9px;animation:liveBanner 2.6s ease-in-out infinite}.live-energy-banner b{color:#00f0c2;letter-spacing:.7px}.live-energy-banner span:last-child{color:#a9c7d9;margin-left:auto}.pulse-dot{width:7px;height:7px;border-radius:50%;background:#00f0c2;box-shadow:0 0 0 0 rgba(0,240,194,.65);animation:pulseDot 1.4s infinite}.hot-streak .live-energy-banner{border-color:#ff7b21;background:linear-gradient(90deg,rgba(255,72,0,.2),rgba(105,15,0,.25),rgba(255,190,0,.08));box-shadow:0 0 28px rgba(255,78,0,.2)}
 @keyframes pulseDot{70%{box-shadow:0 0 0 8px rgba(0,240,194,0)}100%{box-shadow:0 0 0 0 rgba(0,240,194,0)}}@keyframes liveBanner{50%{transform:translateY(-1px);filter:brightness(1.12)}}
+
+/* ===== V4 REAL LIVE ARENA ===== */
+html,body{background:#010711!important}
+body{min-height:100dvh}
+.app{isolation:isolate;overflow:hidden;background:#010711!important;min-height:100dvh;padding-bottom:82px}
+#ambientFX{z-index:0!important;opacity:1!important;position:fixed!important;inset:0!important;background-image:linear-gradient(180deg,rgba(0,7,18,.18),rgba(0,7,18,.72)),url('../assets/stadium.svg')!important;background-size:cover,cover!important;background-position:center top,center center!important;background-repeat:no-repeat!important;filter:saturate(1.22) contrast(1.08)!important;animation:arenaDrift 18s ease-in-out infinite alternate!important}
+#ambientFX:before{content:"";position:absolute;inset:-20%;background:conic-gradient(from 210deg at 50% 42%,transparent 0 19%,rgba(0,225,255,.11) 22%,transparent 26% 46%,rgba(0,255,198,.08) 49%,transparent 54% 76%,rgba(35,145,255,.1) 79%,transparent 84%);filter:blur(14px);animation:beamRotate 12s linear infinite}
+#ambientFX:after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 20%,transparent 0 28%,rgba(0,0,0,.18) 58%,rgba(0,0,0,.72) 100%),linear-gradient(90deg,rgba(0,100,255,.08),transparent 25% 75%,rgba(0,255,210,.06));animation:atmospherePulse 5s ease-in-out infinite}
+.app>.screen{z-index:2}
+.app>.bottom{z-index:30}
+.statusbar,.home-head,.inner-head{position:relative;z-index:4}
+.home-head{background:linear-gradient(180deg,rgba(1,10,25,.8),rgba(1,10,25,.18));border-bottom:1px solid rgba(34,181,255,.22);backdrop-filter:blur(5px)}
+.hero-match,.card,.settings-card,.date-select,.select-row,.filter-box,.search-card{background:linear-gradient(145deg,rgba(3,29,52,.78),rgba(1,13,27,.82))!important;backdrop-filter:blur(12px);box-shadow:0 10px 36px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.05),0 0 22px rgba(0,158,255,.08)}
+.hero-match{position:relative;overflow:hidden;border-color:#0bbde8!important;box-shadow:0 0 0 1px rgba(0,226,255,.12),0 0 38px rgba(0,163,255,.18),inset 0 0 35px rgba(0,198,255,.08)!important}
+.hero-match:before{content:"";position:absolute;inset:-40% -20%;background:linear-gradient(115deg,transparent 35%,rgba(0,237,255,.18) 46%,transparent 57%);animation:heroSweep 5s linear infinite;pointer-events:none}
+.live-energy-banner{position:relative;overflow:hidden;backdrop-filter:blur(10px)}
+.live-energy-banner:after{content:"";position:absolute;top:0;bottom:0;width:35%;left:-40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);transform:skewX(-20deg);animation:liveSweep 2.2s linear infinite}
+.match-card,.match{position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(4,38,66,.78),rgba(1,17,32,.88))!important;backdrop-filter:blur(10px);transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+.match-card:hover,.match:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,151,255,.2),inset 0 0 24px rgba(0,226,255,.05)}
+.match-energy{position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 20%,rgba(0,235,255,.08) 48%,transparent 72%);transform:translateX(-120%);animation:cardSweep 4.8s ease-in-out infinite}
+.score-goal{animation:goalCard .8s ease-in-out 2;border-color:#ff365d!important;box-shadow:0 0 25px rgba(255,36,75,.55)!important}
+.bottom{background:linear-gradient(180deg,rgba(2,14,29,.76),rgba(1,7,16,.96))!important;border-top:1px solid rgba(0,211,255,.35)!important;backdrop-filter:blur(18px);box-shadow:0 -8px 30px rgba(0,0,0,.45)}
+.nav.active{color:#00f3c4!important;text-shadow:0 0 12px rgba(0,240,195,.65)}
+.nav.active:before{content:"";position:absolute;left:18%;right:18%;top:3px;height:2px;background:#00efc4;box-shadow:0 0 12px #00efc4}
+.quick-grid button{box-shadow:0 8px 18px rgba(0,0,0,.25),inset 0 1px rgba(255,255,255,.1)}
+.quick-grid button:first-child{box-shadow:0 0 20px rgba(0,239,182,.24)}
+#goalFlash{backdrop-filter:blur(14px)!important}
+#goalFlash:after{content:"";position:absolute;inset:-100px;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.16) 0 5deg,transparent 5deg 18deg);z-index:-1;animation:goalRays .8s linear infinite}
+#thunderOverlay span{filter:drop-shadow(0 0 20px #fff) drop-shadow(0 0 50px #18dfff);animation:thunderBolt .8s cubic-bezier(.2,.9,.2,1)}
+#streakFlash{backdrop-filter:blur(12px)}
+.hot-streak .app{filter:saturate(1.12)}
+.hot-streak #ambientFX:after{background:radial-gradient(ellipse at 50% 20%,transparent 0 25%,rgba(255,70,0,.05) 50%,rgba(0,0,0,.72) 100%),linear-gradient(90deg,rgba(255,60,0,.08),transparent 35% 65%,rgba(255,170,0,.06));}
+.hot-streak .hero-match{border-color:#ff6a21!important;box-shadow:0 0 30px rgba(255,78,0,.2),inset 0 0 30px rgba(255,90,0,.06)!important}
+.arena-basketball #ambientFX{filter:hue-rotate(8deg) saturate(1.3) contrast(1.08)!important}
+.arena-tennis #ambientFX{filter:hue-rotate(28deg) saturate(1.18) contrast(1.08)!important}
+.arena-baseball #ambientFX{filter:hue-rotate(-12deg) saturate(1.2) contrast(1.08)!important}
+.arena-hockey #ambientFX{filter:hue-rotate(45deg) saturate(1.15) brightness(1.05)!important}
+.arena-f1 #ambientFX{filter:hue-rotate(-25deg) saturate(1.45) contrast(1.12)!important}
+.arena-mma #ambientFX{filter:hue-rotate(-45deg) saturate(1.5) contrast(1.12)!important}
+.arena-rugby #ambientFX{filter:hue-rotate(12deg) saturate(1.2)!important}
+.arena-volleyball #ambientFX{filter:hue-rotate(25deg) saturate(1.22)!important}
+@keyframes arenaDrift{0%{background-position:center top,50% 48%;transform:scale(1)}100%{background-position:center top,53% 51%;transform:scale(1.035)}}
+@keyframes beamRotate{to{transform:rotate(360deg)}}
+@keyframes atmospherePulse{50%{opacity:.78;filter:brightness(1.2)}}
+@keyframes heroSweep{0%{transform:translateX(-70%) rotate(2deg)}55%,100%{transform:translateX(70%) rotate(2deg)}}
+@keyframes liveSweep{to{left:130%}}
+@keyframes cardSweep{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
+@keyframes goalCard{0%,100%{transform:scale(1)}35%{transform:scale(1.025) rotate(-.4deg)}65%{transform:scale(.99) rotate(.4deg)}}
+@keyframes goalRays{to{transform:rotate(360deg)}}
+@keyframes thunderBolt{0%{transform:scale(.25) rotate(-30deg);opacity:0}15%{transform:scale(1.25) rotate(8deg);opacity:1}35%{transform:scale(.85) rotate(-4deg)}55%{transform:scale(1.1) rotate(2deg)}100%{transform:scale(1) rotate(0);opacity:0}}
+.stadium-live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ff3154;box-shadow:0 0 12px #ff3154;animation:pulseDot .9s infinite}.hero-line b{color:#00efc4;font-size:9px}.live-hero .hero-center span{text-shadow:0 0 18px rgba(0,226,255,.4)}
