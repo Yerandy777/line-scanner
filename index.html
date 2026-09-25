@@ -381,18 +381,30 @@ body{background:#000814}
 .scanner-screen .scanner-results-title{display:flex;align-items:center;justify-content:space-between}
 .scanner-screen .decision-pick{letter-spacing:.1px}
 
+/* ===== V42.2 RANDOM THUNDER ENGINE ===== */
+.thunder-layer{position:fixed;inset:0;z-index:98;pointer-events:none;overflow:hidden}
+.thunder-bolt{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 13px #00e7ff) drop-shadow(0 0 30px #176cff);opacity:0}
+.thunder-bolt.show{animation:thunderFlash .72s ease-out forwards}
+.thunder-bolt path{fill:none;stroke:#dffcff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.thunder-bolt path.glow{stroke:#00e7ff;stroke-width:8;opacity:.62;filter:blur(1.5px)}
+.thunder-bolt path.core{stroke:#fff;stroke-width:1.7}
+.thunder-flare{position:absolute;width:55vw;height:55vw;max-width:340px;max-height:340px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.42),rgba(0,231,255,.12) 28%,transparent 70%);mix-blend-mode:screen;opacity:0;transform:translate(-50%,-50%);filter:blur(2px)}
+.thunder-flare.show{animation:flareFlash .72s ease-out forwards}
+@keyframes thunderFlash{0%{opacity:0}8%{opacity:1}13%{opacity:.12}20%{opacity:.9}30%{opacity:.08}48%{opacity:.72}100%{opacity:0}}
+@keyframes flareFlash{0%{opacity:0;transform:translate(-50%,-50%) scale(.45)}12%{opacity:.9;transform:translate(-50%,-50%) scale(1)}30%{opacity:.1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
+
 /* ===== V42.1 MASTER SPORTS BACKGROUND ===== */
 .arena-bg-image{
  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;
- opacity:.62;filter:saturate(1.12) contrast(1.06) brightness(.72);
+ opacity:.90;filter:saturate(1.18) contrast(1.10) brightness(.92);
  transform:scale(1.015);z-index:1;
  animation:bgBreath 14s ease-in-out infinite;
 }
 .arena-bg:after{z-index:8!important}
 .arena-bg:before{
  background:
- linear-gradient(180deg,rgba(0,5,14,.22) 0%,rgba(0,5,14,.30) 30%,rgba(0,5,14,.60) 68%,rgba(0,3,9,.90) 100%),
- radial-gradient(ellipse at 50% 35%,transparent 0 34%,rgba(0,4,12,.36) 75%,rgba(0,2,8,.72) 100%) !important;
+ linear-gradient(180deg,rgba(0,5,14,.08) 0%,rgba(0,5,14,.14) 30%,rgba(0,5,14,.34) 68%,rgba(0,3,9,.66) 100%),
+ radial-gradient(ellipse at 50% 35%,transparent 0 34%,rgba(0,4,12,.18) 75%,rgba(0,2,8,.46) 100%) !important;
  z-index:4!important;
 }
 .arena-sport-art{z-index:3!important;opacity:.38!important;mix-blend-mode:screen!important}
@@ -400,7 +412,7 @@ body{background:#000814}
 .arena-light{z-index:5!important;opacity:.20!important}
 .arena-particles{z-index:6!important}
 .arena-scanline{z-index:9!important}
-@keyframes bgBreath{0%,100%{transform:scale(1.015);filter:saturate(1.08) contrast(1.04) brightness(.70)}50%{transform:scale(1.035);filter:saturate(1.16) contrast(1.07) brightness(.76)}}
+@keyframes bgBreath{0%,100%{transform:scale(1.015);filter:saturate(1.08) contrast(1.04) brightness(.88)}50%{transform:scale(1.035);filter:saturate(1.16) contrast(1.07) brightness(.96)}}
 @media(prefers-reduced-motion:reduce){.arena-bg-image{animation:none;transform:scale(1.015)}}
 </style>
 </head>
@@ -417,6 +429,7 @@ body{background:#000814}
       <div class="electric-bolt bolt-c"></div><div class="electric-bolt bolt-d"></div>
       <div class="electric-burst"></div>
     </div>
+    <div class="thunder-layer" id="thunderLayer" aria-hidden="true"><svg class="thunder-bolt" id="thunderBolt" viewBox="0 0 100 100" preserveAspectRatio="none"><path class="glow" d=""></path><path class="core" d=""></path></svg><div class="thunder-flare" id="thunderFlare"></div></div>
     <div class="goal-flash" id="goalFlash"><span>⚡</span><b>¡GOOOL!</b><small id="goalFlashText">ANOTACIÓN EN VIVO</small></div>
 <section class="screen active" data-page="home">
  <header class="top">
@@ -699,6 +712,29 @@ function startVisualRotation(){
   setArenaSport(list[i],false);
  },8500);
 }
+function randomThunder(force=false){
+ const svg=$('#thunderBolt'), glow=svg?.querySelector('.glow'), core=svg?.querySelector('.core'), flare=$('#thunderFlare');
+ if(!svg||!glow||!core||!flare)return;
+ const side=Math.random()<.5?'left':'right';
+ const startX=side==='left' ? 8+Math.random()*35 : 58+Math.random()*34;
+ const endX=Math.max(4,Math.min(96,startX+(Math.random()-.5)*26));
+ const points=[]; let x=startX, y=-3; points.push([x,y]);
+ const steps=5+Math.floor(Math.random()*6);
+ for(let i=1;i<=steps;i++){ y=i*(103/steps); x += (Math.random()-.5)*20; x=Math.max(3,Math.min(97,x)); points.push([x,y]); }
+ const d=points.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+ glow.setAttribute('d',d); core.setAttribute('d',d);
+ const fx=Math.max(8,Math.min(92,endX+(Math.random()-.5)*12)), fy=20+Math.random()*65;
+ flare.style.left=fx+'%'; flare.style.top=fy+'%';
+ svg.classList.remove('show'); flare.classList.remove('show'); void svg.offsetWidth;
+ svg.classList.add('show'); flare.classList.add('show');
+ setTimeout(()=>{svg.classList.remove('show');flare.classList.remove('show')},760);
+}
+function startRandomThunder(){
+ if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const schedule=()=>{const delay=6500+Math.random()*12500;setTimeout(()=>{if(document.visibilityState==='visible' && Math.random()>.12)randomThunder();schedule()},delay)};
+ setTimeout(()=>randomThunder(),3200); schedule();
+}
+
 function showGoalFlash(m){
  const el=$('#goalFlash'), lightning=$('#electricLayer'); if(!el)return;
  $('#goalFlashText').textContent=`${m.home} ${m.homeScore} - ${m.awayScore} ${m.away}`;
@@ -1308,7 +1344,7 @@ function bind(){
   if(dt){const p=state.preds[Number(dt.dataset.detail)];const s=state.scans.find(x=>x.id===p.scanId);if(s){state.selected=s;page('detail')}} 
  });
  const search=$('#searchBox'); if(search)search.addEventListener('input',()=>renderScanner());$('#demoScanBtn').onclick=loadDemoScan;$('#analyzeBtn').onclick=analyze;$('#selfTestBtn').onclick=selfTests;$('#runAllTest').onclick=selfTests;$('#saveKey').onclick=async()=>{const v=$('#apiKey').value.trim();if(!v||v.startsWith('•')){toast('Escribe una API key válida.');return}state.apiKey=v;sessionSet('lsp_api',v);await testApi();renderSettings();renderApiMatrix()};$('#clearKey').onclick=()=>{state.apiKey='';sessionDel('lsp_api');renderSettings();$('#apiPill').textContent='DEMO';toast('Clave eliminada de la sesión.')};$('#exportBtn').onclick=exportData;$('#resetBtn').onclick=()=>{if(confirm('¿Borrar análisis y predicciones locales?')){state.scans=[];state.preds=[];store.set('lsp_scans',[]);store.set('lsp_preds',[]);renderStats();renderScanner();renderPred();toast('Datos locales restablecidos.')}}}
-async function boot(){renderSports();bindArena();bindScannerExamples();bind();setArenaSport(state.visualSport,false);startVisualRotation();updateScannerMetrics();await renderHome();renderLive();renderFinal();renderPred();renderScanner();renderStats();renderSettings();renderApiMatrix();selfTests();if(state.apiKey)refreshPending();setInterval(()=>{$('#clock').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});},10000);setInterval(()=>{if(state.apiKey){refreshPending();if(state.page==='home')renderHome();else if(state.page==='live')renderLive();else if(state.page==='final')renderFinal()}},60000)}window.LineScannerPro={VERSION,parseLine,settleGoals,settleHandicap,splitQuarter,selfTests,analyze,testApi};boot();
+async function boot(){startRandomThunder();renderSports();bindArena();bindScannerExamples();bind();setArenaSport(state.visualSport,false);startVisualRotation();updateScannerMetrics();await renderHome();renderLive();renderFinal();renderPred();renderScanner();renderStats();renderSettings();renderApiMatrix();selfTests();if(state.apiKey)refreshPending();setInterval(()=>{$('#clock').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});},10000);setInterval(()=>{if(state.apiKey){refreshPending();if(state.page==='home')renderHome();else if(state.page==='live')renderLive();else if(state.page==='final')renderFinal()}},60000)}window.LineScannerPro={VERSION,parseLine,settleGoals,settleHandicap,splitQuarter,selfTests,analyze,testApi};boot();
 })();
 </script><script>
 // V39 mobile update: force the PWA to check the newest service worker and reload once after activation.
