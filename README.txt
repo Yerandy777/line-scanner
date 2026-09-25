@@ -7,3 +7,5 @@ El aprendizaje adaptativo usa únicamente análisis reales ya liquidados; los da
 Publicación: coloca index.html, manifest.webmanifest, sw.js e iconos en la raíz de GitHub Pages.
 
 Nota: la API key se introduce en el dispositivo y no se incluye en estos archivos.
+
+V42.1: integra sports-bg.png como fondo maestro cinematográfico, con overlay para mantener legibilidad y animación sutil.
