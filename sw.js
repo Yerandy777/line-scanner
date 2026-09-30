@@ -1,4 +1,4 @@
-const CACHE='line-scanner-pro-v43-20260930';
+const CACHE='line-scanner-pro-v44-20260930';
 const SHELL=['./','./index.html','./sports-bg.png','./logo-pro.svg','./icon.svg','./manifest.webmanifest','./apple-touch-icon.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('line-scanner-pro-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
