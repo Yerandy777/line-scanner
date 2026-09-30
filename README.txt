@@ -1,11 +1,5 @@
-LINE SCANNER PRO V42
+LINE SCANNER PRO V43
 
-Scanner Pro simplificado: identifica partidos reales, analiza líneas, congela la decisión y realiza seguimiento automático.
-
-El aprendizaje adaptativo usa únicamente análisis reales ya liquidados; los datos DEMO no contaminan el historial. Se aplican ponderación por antigüedad y ajuste por mercado/línea/deporte.
-
-Publicación: coloca index.html, manifest.webmanifest, sw.js e iconos en la raíz de GitHub Pages.
-
-Nota: la API key se introduce en el dispositivo y no se incluye en estos archivos.
-
-V42.1: integra sports-bg.png como fondo maestro cinematográfico, con overlay para mantener legibilidad y animación sutil.
+Sube TODOS estos archivos a la raiz de tu repositorio GitHub Pages.
+V43 usa sports-bg.png como fondo maestro, logo-pro.svg como logotipo y sw.js con cache versionada.
+Scanner Pro fue simplificado visualmente sin quitar el motor de análisis, liquidación y aprendizaje real.
