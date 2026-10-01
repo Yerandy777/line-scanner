@@ -564,7 +564,7 @@ body{background:#000814}
 </div>
 <script>
 (function(){'use strict';
-const VERSION='V45 SCANNER PRO · REAL DATA · LIVE';
+const VERSION='V45 SCANNER PRO · REAL LIVE FIX · MULTISPORT';
 const WORKER_ENABLED=true;
 const SPORTS=[['football','⚽','Fútbol'],['basketball','🏀','Baloncesto'],['baseball','⚾','Béisbol'],['hockey','🏒','Hockey'],['f1','🏎️','F1'],['mma','🥊','MMA'],['rugby','🏉','Rugby'],['volleyball','🏐','Voleibol'],['tennis','🎾','Tenis']];
 const API_CFG={
@@ -726,13 +726,15 @@ function normalizeName(s){
  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(fc|cf|sc|afc|ac|club)\b/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
 }
 function parseLine(raw){
- const text=String(raw||'').trim();
- if(!text)return {error:'Entrada vacía',raw:text};
+ const original=String(raw||'').trim();
+ if(!original)return {error:'Entrada vacía',raw:original};
+ const sportMatch=original.match(/^\s*(NBA|WNBA|NCAA|MLB|NHL|NFL|FIBA|FUTBOL|FÚTBOL|FOOTBALL|BALONCESTO|BASKET|BASEBALL|HOCKEY|RUGBY|VOLEIBOL|VOLLEYBALL|TENIS|TENNIS|F1|FORMULA\s*1)\s*[:|\-]\s*/i);
+ const sportAlias=sportMatch?sportMatch[1].toLowerCase().replace(/\s+/g,' '):'';
+ const sportMap={nba:'basketball',wnba:'basketball',ncaa:'basketball',fiba:'basketball',baloncesto:'basketball',basket:'basketball',mlb:'baseball',baseball:'baseball',nhl:'hockey',hockey:'hockey',nfl:'football',futbol:'football','fútbol':'football',football:'football',rugby:'rugby',voleibol:'volleyball',volleyball:'volleyball',tenis:'tennis',tennis:'tennis',f1:'f1','formula 1':'f1'};
+ const text=(sportMatch?original.slice(sportMatch[0].length):original).trim();
  const m=text.match(/^(.*?)\s+(?:vs\.?|v\.?|🆚|contra)\s+(.*)$/i);
- if(!m)return {error:'Formato esperado: Equipo A vs Equipo B [hándicap] (línea de goles)',raw:text};
- let home=m[1].trim(); let rest=m[2].trim();
- const sportPrefix=home.match(/^(NBA|MLB|NHL|FIBA|BALONCESTO|BASKET|BEISBOL|BASEBALL|HOCKEY|RUGBY|VOLEIBOL|VOLLEYBALL|FUTBOL|FOOTBALL)\s*[:|,-]\s*/i);
- if(sportPrefix) home=home.slice(sportPrefix[0].length).trim();
+ if(!m)return {error:'Formato esperado: Equipo A vs Equipo B [hándicap] (línea de goles)',raw:original,sportHint:sportMap[sportAlias]||null};
+ const home=m[1].trim(); let rest=m[2].trim();
  let line=null,lineText=null,totalSide=null;
  const lm=rest.match(/\(([^()]*)\)\s*$/);
  if(lm){
@@ -753,8 +755,8 @@ function parseLine(raw){
    else if(!after){handicapTeam='home';away=before;}
    else {handicapTeam='away';away=(before+' '+after).trim();}
  }
- if(!away)return {error:'No se pudo identificar el segundo equipo',raw:text};
- return {raw:text,home,away,line,lineText,totalSide,handicap,handicapTeam,sportHint:sportPrefix?.[1]?.toLowerCase()||null};
+ if(!away)return {error:'No se pudo identificar el segundo equipo',raw:original,sportHint:sportMap[sportAlias]||null};
+ return {raw:original,home,away,line,lineText,totalSide,handicap,handicapTeam,sportHint:sportMap[sportAlias]||null};
 }
 function splitQuarter(n){
  const x=Number(n); if(!Number.isFinite(x))return [];
@@ -876,7 +878,7 @@ async function apiRequestSport(sport,path,timeout=12000){
  if(r.status===401)throw new Error('AUTH_REJECTED: clave no autorizada.');if(r.status===403)throw new Error('FORBIDDEN: acceso denegado.');if(r.status===429)throw new Error('QUOTA: límite de solicitudes alcanzado.');if(!r.ok)throw new Error('HTTP_'+r.status+(msg?' · '+msg:''));if(errs.length)throw new Error('API_ERROR: '+errs.join(' · '));return j||{}
 }
 
-function mapGame(sport,g){if(sport==='football'){const st=String(g.fixture?.status?.short||'NS').toUpperCase();return {id:g.fixture?.id,sport,league:g.league?.name||'',leagueId:g.league?.id,home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||'',awayLogo:g.teams?.away?.logo||'',homeScore:g.goals?.home??0,awayScore:g.goals?.away??0,status:isFinishedStatus(st)?'FINISHED':isLiveStatus(st)?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.fixture?.status?.long||'',minute:g.fixture?.status?.elapsed||0,date:g.fixture?.date||'',timestamp:g.fixture?.timestamp||0,odds:[]}}const st=String(g.status?.short??g.status?.long??'').toUpperCase();const finished=isFinishedStatus(st);const live=isLiveStatus(st)||(!finished&&!['NS','NOT STARTED','CANC','CANCELLED','POSTPONED','4','5','6'].includes(st)&&st!=='');return {id:g.id,sport,league:g.league?.name||g.league?.league||g.league||'',home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||g.teams?.home?.image||'',awayLogo:g.teams?.away?.logo||g.teams?.away?.image||'',homeScore:g.scores?.home?.total??g.scores?.home??g.scores?.home?.points??0,awayScore:g.scores?.away?.total??g.scores?.away??g.scores?.away?.points??0,status:finished?'FINISHED':live?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.status?.long||'',minute:g.status?.timer||g.status?.elapsed||st,date:g.date||g.datetime||'',timestamp:g.timestamp||g.date?.timestamp||0,odds:[]}}
+function mapGame(sport,g){if(sport==='football'){const st=String(g.fixture?.status?.short||'NS').toUpperCase();return {id:g.fixture?.id,sport,league:g.league?.name||'',leagueId:g.league?.id,home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||'',awayLogo:g.teams?.away?.logo||'',homeScore:g.goals?.home??0,awayScore:g.goals?.away??0,status:isFinishedStatus(st)?'FINISHED':isLiveStatus(st)?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.fixture?.status?.long||'',minute:g.fixture?.status?.elapsed||0,date:g.fixture?.date||'',timestamp:g.fixture?.timestamp||0,odds:[]}}const st=String(g.status?.short??g.status?.long??'').toUpperCase();const finished=isFinishedStatus(st);const live=isLiveStatus(st)||(!finished&&!['NS','NOT STARTED','CANC','CANCELLED','POSTPONED','4','5','6'].includes(st)&&st!=='');return {id:g.id,sport,league:g.league?.name||g.league?.league||g.league||'',home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||g.teams?.home?.image||'',awayLogo:g.teams?.away?.logo||g.teams?.away?.image||'',homeScore:scoreValue(g.scores?.home),awayScore:scoreValue(g.scores?.away),status:finished?'FINISHED':live?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.status?.long||'',minute:g.status?.timer||g.status?.elapsed||st,date:g.date||g.datetime||'',timestamp:Number(g.timestamp||g.date?.timestamp||g.datetime?.timestamp||((typeof g.date==='string'&&Date.parse(g.date))?Date.parse(g.date)/1000:0))||0,odds:[]}}
 async function fetchLiveSport(sport,cache=true){const cfg=API_CFG[sport];if(!cfg?.live)throw new Error(cfg?.kind==='unsupported'?'API NO DISPONIBLE':'LIVE NO DISPONIBLE');const now=Date.now(),c=state.liveCache[sport];if(cache&&c&&now-c.ts<45000)return c.rows;const j=await apiRequestSport(sport,cfg.live);const rows=(j.response||[]).map(x=>mapGame(sport,x)).filter(x=>x.status==='LIVE');state.liveCache[sport]={ts:now,rows};state.online[sport]={ok:true,results:j.results??rows.length};return rows}
 async function testAllApis(){if(!state.apiKey){renderApiMatrix();return}for(const sport of Object.keys(API_CFG)){const cfg=API_CFG[sport];if(!cfg?.base){state.online[sport]={ok:false,error:'NO SOPORTADO POR API-SPORTS'};continue}try{if(cfg.kind==='football')await apiRequestSport(sport,'/status');else if(cfg.kind==='games')await apiRequestSport(sport,cfg.live);else state.online[sport]={ok:false,error:'SIN LIVE ENDPOINT'};if(cfg.kind==='football'||cfg.kind==='games')state.online[sport]={ok:true,error:''}}catch(e){state.online[sport]={ok:false,error:normalizeApiError(e)}}}renderApiMatrix()}
 function renderApiMatrix(){const el=$('#apiMatrix');if(!el)return;el.innerHTML=SPORTS.map(x=>{const k=x[0],cfg=API_CFG[k],o=state.online[k];let label='SIN PROBAR',cls='status-warn';if(!WORKER_ENABLED&&!state.apiKey)label='SIN CLAVE';else if(!cfg?.base)label='NO DISPONIBLE';else if(o?.ok){label='ONLINE';cls='status-ok'}else if(o?.error){label=o.error;cls='status-bad'}return `<div class="test"><span>${x[1]} ${x[2]}</span><b class="${cls}">${esc(label)}</b></div>`}).join('')}
@@ -885,23 +887,27 @@ function daysAgoISO(n){
  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
  return `${y}-${m}-${day}`;
 }
-async function fetchFinishedFootballRange(range){
+async function fetchFinishedRange(range){
  if(!WORKER_ENABLED&&!state.apiKey)return [];
- let from,to;
- if(range==='today'){from=to=todayISO();}
- else if(range==='7d'){from=daysAgoISO(7);to=todayISO();}
- else if(range==='30d'){from=daysAgoISO(30);to=todayISO();}
- else {from=daysAgoISO(30);to=todayISO();}
- try{
-  const path=from===to?'/fixtures?date='+from:'/fixtures?from='+from+'&to='+to;
-  const j=await apiRequestSport('football',path);
-  const rows=(j.response||[]).map(x=>mapGame('football',x)).filter(x=>x.status==='FINISHED');
-  return rows.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,100);
- }catch(e){
-  state.online.football={ok:false,error:normalizeApiError(e)};
-  return [];
+ let days=range==='today'?0:range==='7d'?7:range==='30d'?30:30;
+ const sports=Object.keys(API_CFG).filter(k=>API_CFG[k]?.base);
+ const dates=Array.from({length:days+1},(_,i)=>daysAgoISO(i));
+ const out=[];
+ for(const sport of sports){
+  try{
+   const cfg=API_CFG[sport];
+   if(sport==='football'){
+    const js=await Promise.all(dates.map(d=>apiRequestSport(sport,'/fixtures?date='+d).catch(()=>({response:[]}))));
+    out.push(...js.flatMap(j=>j.response||[]).map(x=>mapGame(sport,x)).filter(x=>x.status==='FINISHED'));
+   }else if(['basketball','baseball','hockey','rugby','volleyball'].includes(sport)){
+    const js=await Promise.all(dates.slice(0,Math.min(dates.length,8)).map(d=>apiRequestSport(sport,'/games?date='+d).catch(()=>({response:[]}))));
+    out.push(...js.flatMap(j=>j.response||[]).map(x=>mapGame(sport,x)).filter(x=>x.status==='FINISHED'));
+   }
+  }catch(e){state.online[sport]={ok:false,error:normalizeApiError(e)}}
  }
+ return out.filter((m,i,a)=>a.findIndex(x=>String(x.id)===String(m.id)&&x.sport===m.sport)===i).sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,150);
 }
+async function fetchFinishedFootballRange(range){return fetchFinishedRange(range)}
 async function renderFinal(){
  const box=$('#finalList'),pill=$('#finalApiPill');
  $$('.final-range-row [data-final-range]').forEach(x=>x.classList.toggle('active',x.dataset.finalRange===state.finalFilter));
@@ -914,7 +920,7 @@ async function renderFinal(){
  if(pill)pill.textContent='ONLINE';
  box.innerHTML='<div class="empty"><span class="loading-ring"></span> Consultando resultados reales…</div>';
  const a=await fetchFinishedFootballRange(state.finalFilter);
- box.innerHTML=(a.length?'<div class="small" style="margin:0 3px 8px;color:#00e7ff">● DATOS REALES · API-Football · actualización al abrir esta sección</div>':'')+(a.length?a.map(m=>matchCard(m)).join(''):'<div class="empty">No hay resultados finalizados en este periodo.</div>');
+ box.innerHTML=(a.length?'<div class="small" style="margin:0 3px 8px;color:#00e7ff">● DATOS REALES · MULTIDEPORTE · actualización al abrir esta sección</div>':'')+(a.length?a.map(m=>matchCard(m)).join(''):'<div class="empty">No hay resultados finalizados en este periodo.</div>');
 }
 function marketLabel(p){const low=String(p?.raw||'').toLowerCase();const arr=[];if(p?.line!=null)arr.push(low.includes('under')||low.includes('menos')?'UNDER':'OVER');if(p?.handicap!=null)arr.push('HÁNDICAP');return arr.join(' + ')||'LÍNEA'}
 function isRealSettledScan(s){
@@ -979,6 +985,7 @@ function liveProjection(parsed,match,totalExp){
  }
  return {elapsed:match?.minute??'',current,remaining:null,remainingExpected:null,projectedFinal:null,sport};
 }
+function scoreValue(v){if(v==null)return 0;if(typeof v==='number')return v;if(typeof v==='string')return Number(v)||0;return Number(v.total??v.points??v.runs??v.score??v.value??0)||0}
 function genericRows(rows){return (rows||[]).map(g=>({id:g.id||g.game?.id||g.fixture?.id,homeId:g.teams?.home?.id,awayId:g.teams?.away?.id,home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeScore:Number(g.scores?.home?.total??g.scores?.home?.runs??g.scores?.home??0)||0,awayScore:Number(g.scores?.away?.total??g.scores?.away?.runs??g.scores?.away??0)||0,status:fixtureStatus(g.status?.short||g.status?.long||'')}));}
 function genericForm(rows,teamId){const a=genericRows(rows).filter(x=>x.status==='FINISHED');let total=0,margin=0,n=0,w=0,d=0,l=0;for(const g of a){const home=String(g.homeId)===String(teamId),gf=home?g.homeScore:g.awayScore,ga=home?g.awayScore:g.homeScore;total+=gf+ga;margin+=gf-ga;n++;if(gf>ga)w++;else if(gf===ga)d++;else l++;}return {n,avgTotal:n?+(total/n).toFixed(2):0,avgMargin:n?+(margin/n).toFixed(2):0,w,d,l,winRate:n?Math.round(w/n*100):0};}
 function liveStatValue(rows,name,teamIndex){
@@ -1277,44 +1284,69 @@ function fixtureStateLabel(m){
 }
 function sameTeam(a,b){const x=normalizeName(a),y=normalizeName(b);return x===y||x.includes(y)||y.includes(x)}
 async function resolveOnline(p){
- const raw=String(p.raw||'').trim(),hint=raw.toLowerCase();
- const alias=hint.match(/(?:^|[\s|:,-])(nba|mlb|nhl|fiba|baloncesto|basket|beisbol|baseball|hockey|rugby|voleibol|volleyball|futbol|football)(?:$|[\s|:,-])/i)?.[1]?.toLowerCase();
- const map={nba:'basketball',fiba:'basketball',baloncesto:'basketball',basket:'basketball',mlb:'baseball',beisbol:'baseball',baseball:'baseball',nhl:'hockey',hockey:'hockey',rugby:'rugby',voleibol:'volleyball',volleyball:'volleyball',futbol:'football',football:'football'};
- const sport=map[p.sportHint]||map[alias]||'football',cfg=API_CFG[sport];
- if(!cfg?.base)return null;
+ const map={nba:'basketball',wnba:'basketball',ncaa:'basketball',fiba:'basketball',baloncesto:'basketball',basket:'basketball',mlb:'baseball',beisbol:'baseball',baseball:'baseball',nhl:'hockey',hockey:'hockey',nfl:'football',rugby:'rugby',voleibol:'volleyball',volleyball:'volleyball',futbol:'football','fútbol':'football',football:'football',tenis:'tennis',tennis:'tennis',f1:'f1','formula 1':'f1'};
+ const sport=p.sportHint||map[String(p.raw||'').toLowerCase().match(/(?:^|\\s)(nba|wnba|ncaa|fiba|mlb|beisbol|baseball|nhl|hockey|nfl|rugby|voleibol|volleyball|futbol|fútbol|football|tenis|tennis|f1)(?:\\s|:|$)/i)?.[1]?.toLowerCase()]||'football';
+ if(!API_CFG[sport]?.base)return null;
  const q=path=>apiRequestSport(sport,path);
- const isFootball=sport==='football';
- const teamName=x=>isFootball?(x?.team?.name||''):(x?.team?.name||x?.name||'');
- const teamId=x=>isFootball?(x?.team?.id||x?.id):(x?.team?.id||x?.id);
+ const teamPath=sport==='football'?'/teams?search=':'/teams?search=';
+ const teamRows=async name=>{const j=await q(teamPath+encodeURIComponent(name));return j.response||[]};
+ const pickTeam=(rows,name)=>{
+   const target=normalizeName(name);
+   return rows.map(x=>x.team||x).filter(x=>x?.id).sort((a,b)=>{
+     const an=normalizeName(a.name),bn=normalizeName(b.name);
+     const sa=an===target?0:an.includes(target)||target.includes(an)?1:2;
+     const sb=bn===target?0:bn.includes(target)||target.includes(bn)?1:2;
+     return sa-sb;
+   })[0]||null;
+ };
  try{
-  const [hs,as]=await Promise.all([q('/teams?search='+encodeURIComponent(p.home)),q('/teams?search='+encodeURIComponent(p.away))]);
-  const hids=(hs.response||[]).map(teamId).filter(Boolean),aids=(as.response||[]).map(teamId).filter(Boolean);
-  if(!hids.length||!aids.length)throw new Error('EQUIPOS_NO_ENCONTRADOS');
-  const games=[];
-  const endpoint=isFootball?'/fixtures?team=':'/games?team=';
-  const ranges=isFootball?['next=20','last=50']:['next=20','last=30'];
-  for(const h of hids.slice(0,3))for(const a of aids.slice(0,3))for(const range of ranges){
-   const j=await q(endpoint+h+'&'+range);
-   for(const g of j.response||[]){
-    const gh=isFootball?g.teams?.home?.id:g.teams?.home?.id,ga=isFootball?g.teams?.away?.id:g.teams?.away?.id;
-    if((gh===h&&ga===a)||(gh===a&&ga===h))games.push(g);
+   const [hr,ar]=await Promise.all([teamRows(p.home),teamRows(p.away)]);
+   const ht=pickTeam(hr,p.home),at=pickTeam(ar,p.away);
+   if(!ht||!at)throw new Error('EQUIPOS_NO_ENCONTRADOS');
+   const hId=ht.id,aId=at.id;
+   const matchPair=g=>{const gh=g.teams?.home?.id,ga=g.teams?.away?.id;return (String(gh)===String(hId)&&String(ga)===String(aId))||(String(gh)===String(aId)&&String(ga)===String(hId));};
+   let games=[];
+   if(sport==='football'){
+     const dates=[todayISO(),daysAgoISO(1),tomorrowISO()];
+     const results=await Promise.all(dates.map(d=>q('/fixtures?date='+d).catch(()=>({response:[]}))));
+     games=results.flatMap(j=>j.response||[]).filter(matchPair);
+     if(!games.length){
+       const results2=await Promise.all([q('/fixtures?team='+hId+'&next=10'),q('/fixtures?team='+hId+'&last=20'),q('/fixtures?team='+aId+'&next=10'),q('/fixtures?team='+aId+'&last=20')]);
+       games=results2.flatMap(j=>j.response||[]).filter(matchPair);
+     }
+   }else if(['basketball','baseball','hockey','rugby','volleyball'].includes(sport)){
+     const dates=[todayISO(),daysAgoISO(1),tomorrowISO(),daysAgoISO(2),daysAgoISO(3)];
+     const results=await Promise.all(dates.map(d=>q('/games?date='+d).catch(()=>({response:[]}))));
+     games=results.flatMap(j=>j.response||[]).filter(matchPair);
+     if(!games.length){
+       const results2=await Promise.all([q('/games?team='+hId+'&season='+new Date().getFullYear()).catch(()=>({response:[]})),q('/games?team='+aId+'&season='+new Date().getFullYear()).catch(()=>({response:[]}))]);
+       games=results2.flatMap(j=>j.response||[]).filter(matchPair);
+     }
+   }else return null;
+   const uniq=games.filter((g,i,a)=>a.findIndex(x=>String(x.id||x.fixture?.id)===String(g.id||g.fixture?.id))===i);
+   if(!uniq.length)throw new Error('PARTIDO_NO_ENCONTRADO');
+   const now=Date.now()/1000;
+   uniq.sort((a,b)=>{
+     const sa=String(a.fixture?.status?.short||a.status?.short||a.status?.long||''),sb=String(b.fixture?.status?.short||b.status?.short||b.status?.long||'');
+     const rank=x=>isLiveStatus(x)?0:isFinishedStatus(x)?1:2;
+     const ta=Number(a.fixture?.timestamp||a.timestamp||0),tb=Number(b.fixture?.timestamp||b.timestamp||0);
+     return rank(sa)-rank(sb)||Math.abs(ta-now)-Math.abs(tb-now);
+   });
+   const g=uniq[0],match=mapGame(sport,g);match.homeId=g.teams?.home?.id;match.awayId=g.teams?.away?.id;
+   const research={};
+   if(sport==='football'){
+     try{const [hf,af,h2]=await Promise.all([q('/fixtures?team='+match.homeId+'&last=10'),q('/fixtures?team='+match.awayId+'&last=10'),q('/fixtures?h2h='+match.homeId+'-'+match.awayId+'&last=5')]);research.homeForm=hf.response||[];research.awayForm=af.response||[];research.h2h=h2.response||[]}catch(e){research.formError=normalizeApiError(e)}
+     if(match.status==='LIVE'&&match.id){try{const st=await q('/fixtures/statistics?fixture='+match.id);research.liveStats=st.response||[]}catch(e){research.liveStatsError=normalizeApiError(e)}}
+     try{const pred=await q('/predictions?fixture='+match.id);research.apiPrediction=pred.response?.[0]?.predictions||pred.response?.[0]?.prediction||null}catch(e){research.predictionError=normalizeApiError(e)}
+   }else{
+     try{
+       const [h1,h2]=await Promise.all([q('/games?team='+match.homeId+'&season='+new Date().getFullYear()),q('/games?team='+match.awayId+'&season='+new Date().getFullYear())]);
+       research.homeForm=(h1.response||[]).filter(x=>String(x.id)!==String(match.id));research.awayForm=(h2.response||[]).filter(x=>String(x.id)!==String(match.id));
+     }catch(e){research.formError=normalizeApiError(e)}
+     try{const h2=await q('/games?h2h='+match.homeId+'-'+match.awayId);research.h2h=h2.response||[]}catch(e){research.h2h=[]}
+     if(match.status==='LIVE'&&match.id){try{const st=await q('/games/statistics?game='+match.id);research.liveStats=st.response||[]}catch(e){research.liveStatsError=normalizeApiError(e)}}
    }
-  }
-  const uniq=games.filter((g,i,a)=>a.findIndex(x=>String(isFootball?x.fixture?.id:x.id)===String(isFootball?g.fixture?.id:g.id))===i);
-  if(!uniq.length)throw new Error('PARTIDO_NO_ENCONTRADO');
-  const now=Date.now()/1000;
-  const getStatus=g=>isFootball?String(g.fixture?.status?.short||''):String(g.status?.short||g.status?.long||'');
-  const getTs=g=>isFootball?(g.fixture?.timestamp||0):(g.timestamp||0);
-  const rank=g=>{const st=getStatus(g);if(isLiveStatus(st))return 0;if(!isFinishedStatus(st))return 1;return 2};
-  uniq.sort((a,b)=>rank(a)-rank(b)||(rank(a)===2?(getTs(b)-getTs(a)):Math.abs(getTs(a)-now)-Math.abs(getTs(b)-now)));
-  const g=uniq[0],match=mapGame(sport,g),research={};
-  match.homeId=isFootball?g.teams?.home?.id:g.teams?.home?.id;
-  match.awayId=isFootball?g.teams?.away?.id:g.teams?.away?.id;
-  if(isFootball){
-   try{const [hf,af,h2]=await Promise.all([q('/fixtures?team='+match.homeId+'&last=10'),q('/fixtures?team='+match.awayId+'&last=10'),q('/fixtures?h2h='+match.homeId+'-'+match.awayId+'&last=5')]);research.homeForm=hf.response||[];research.awayForm=af.response||[];research.h2h=h2.response||[]}catch(e){research.formError=normalizeApiError(e)}
-   if(match.status==='LIVE'&&match.id){const ck='liveStats:'+match.id;try{if(!state.liveCache[ck]||Date.now()-state.liveCache[ck].at>60000){const st=await q('/fixtures/statistics?fixture='+match.id);state.liveCache[ck]={at:Date.now(),rows:st.response||[]}}research.liveStats=state.liveCache[ck]?.rows||[]}catch(e){research.liveStatsError=normalizeApiError(e)}}
-  }
-  return {match,research,sport};
+   return {match,research,sport};
  }catch(e){state.online[sport]={ok:false,error:normalizeApiError(e)};throw e}
 }
 function settleSelected(parsed,match,analysis){
@@ -1466,7 +1498,7 @@ async function boot(){startRandomThunder();bindV43Home();renderSports();bindAren
 // V39 mobile update: force the PWA to check the newest service worker and reload once after activation.
 (function(){
   if(!('serviceWorker' in navigator)) return;
-  const SW_URL='./sw.js?v=20260930-1300';
+  const SW_URL='./sw.js?v=20261001-1018';
   navigator.serviceWorker.register(SW_URL,{updateViaCache:'none'}).then(reg=>{
     reg.update().catch(()=>{});
     if(reg.waiting){ reg.waiting.postMessage({type:'SKIP_WAITING'}); }
