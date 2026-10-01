@@ -564,7 +564,7 @@ body{background:#000814}
 </div>
 <script>
 (function(){'use strict';
-const VERSION='V45 SCANNER PRO · REAL LIVE FIX · MULTISPORT';
+const VERSION='V45 SCANNER PRO · REAL LIVE · DECISION ENGINE FIX';
 const WORKER_ENABLED=true;
 const SPORTS=[['football','⚽','Fútbol'],['basketball','🏀','Baloncesto'],['baseball','⚾','Béisbol'],['hockey','🏒','Hockey'],['f1','🏎️','F1'],['mma','🥊','MMA'],['rugby','🏉','Rugby'],['volleyball','🏐','Voleibol'],['tennis','🎾','Tenis']];
 const API_CFG={
@@ -747,10 +747,11 @@ function parseLine(raw){
    else if(/\bover\b|\bmas\b|\bmás\b/i.test(lineText))totalSide='OVER';
  }
  let handicap=null,handicapTeam=null,away=rest;
- const hm=rest.match(/(?:^|\s|[A-Za-z])([+-]\d+(?:[\.,]\d+)?)(?=\s|$)/);
+ // Accept both normal Asian notation (-0.5/+0.5) and the common user shorthand p-0.5/p+0.5.
+ const hm=rest.match(/(?:^|\s)(p)?([+-]\d+(?:[\.,]\d+)?)(?=\s|$)/i);
  if(hm){
-   handicap=Number(hm[1].replace(',','.'));
-   const token=hm[1], tokenPos=rest.indexOf(token), before=rest.slice(0,tokenPos).trim(), after=rest.slice(tokenPos+token.length).trim();
+   handicap=Number(hm[2].replace(',','.'));
+   const token=hm[0].trim(), tokenPos=rest.indexOf(token), before=rest.slice(0,tokenPos).trim(), after=rest.slice(tokenPos+token.length).trim();
    if(!before){handicapTeam='away';away=after;}
    else if(!after){handicapTeam='home';away=before;}
    else {handicapTeam='away';away=(before+' '+after).trim();}
@@ -1043,7 +1044,7 @@ function buildResearchGeneric(parsed,match,research){
    const edge=(team==='home'?marginExp:-marginExp)+parsed.handicap;
    const spread=Math.max(1.5,Math.sqrt(Math.max(1,Math.abs(hf.avgTotal||0)+Math.abs(af.avgTotal||0))));
    const pCover=normalCDF(edge/spread);
-   const side=edge>=0?'LOCAL':'VISITANTE';
+   const side=team==='home'?'LOCAL':'VISITANTE';
    signals.push({name:'Margen vs hándicap',value:`${marginExp.toFixed(2)} / ajuste ${edge.toFixed(2)}`,state:Math.abs(edge)>=.5?'ok':Math.abs(edge)>=.18?'warn':'bad'});
    if(Math.abs(edge)>=.18)candidates.push({market:'Hándicap',pick:`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`,probability:Math.round(pCover*100),winProbability:Math.round(pCover*100),pushProbability:0,reason:`Margen estimado ${marginExp.toFixed(2)} frente al hándicap ${parsed.handicap}; cobertura estimada ${Math.round(pCover*100)}%.`});
  }
@@ -1072,9 +1073,9 @@ function buildResearch(parsed,match,research){
    if(abs>=.18){const tp=totalProbability(Math.max(.05,totalExp),parsed.line,side.toLowerCase());candidates.push({market:'Over/Under',pick:`${side} ${parsed.line}`,probability:Math.round(tp.score*100),winProbability:Math.round(tp.win*100),pushProbability:Math.round(tp.push*100),reason:`${live?'Proyección final en vivo':'Proyección prepartido'} ${targetTotal} frente a línea ${parsed.line}; cobertura estimada ${Math.round(tp.score*100)}%.`});}
  }
  if(parsed.handicap!=null){
-   const team=(parsed.handicapTeam||'home')==='away'?'away':'home',hp=handicapProbability(Math.max(.05,homeExp),Math.max(.05,awayExp),parsed.handicap,team),edge=(team==='home'?marginExp:-marginExp)+parsed.handicap,side=edge>=0?'LOCAL':'VISITANTE';
+   const team=(parsed.handicapTeam||'home')==='away'?'away':'home',hp=handicapProbability(Math.max(.05,homeExp),Math.max(.05,awayExp),parsed.handicap,team),edge=(team==='home'?marginExp:-marginExp)+parsed.handicap,side=team==='home'?'LOCAL':'VISITANTE';
    signals.push({name:'Margen vs hándicap',value:`${marginExp} / ajuste ${edge.toFixed(2)}`,state:Math.abs(edge)>=.5?'ok':Math.abs(edge)>=.2?'warn':'bad'});
-   if(Math.abs(edge)>=.18)candidates.push({market:'Hándicap',pick:`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`,probability:Math.round(hp.score*100),winProbability:Math.round(hp.win*100),pushProbability:Math.round(hp.push*100),reason:`Margen esperado ${marginExp}; cobertura estimada ${Math.round(hp.score*100)}%.`});
+   if(Math.abs(edge)>=.18)candidates.push({market:'Hándicap',pick:`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`,probability:Math.round(hp.score*100),winProbability:Math.round(hp.win*100),pushProbability:Math.round(hp.push*100),reason:`${side==='LOCAL'?'Local':'Visitante'} ${parsed.handicap>0?'+':''}${parsed.handicap}; margen esperado ${marginExp}; cobertura estimada ${Math.round(hp.score*100)}%.`});
  }
  signals.push({name:'Forma reciente',value:`${hf.n}+${af.n} partidos`,state:(hf.n>=4&&af.n>=4)?'ok':(hf.n||af.n)?'warn':'bad'});signals.push({name:'H2H',value:h2h.n?`${h2h.n} partidos · ${h2h.avgTotal} goles`:'SIN MUESTRA',state:h2h.n>=3?'ok':h2h.n?'warn':'bad'});
  const dataCount=hf.n+af.n+h2h.n,quality=dataCount>=10?'BUENA':dataCount>=5?'MEDIA':dataCount>=1?'LIMITADA':'NO_APTA',prior=learningProfile(parsed);
@@ -1203,7 +1204,7 @@ function renderScanner(){
   const liveStats=a.liveStats; const selected=pick.toUpperCase();
   return `<div class="card scanner-v44-result ${a.noBet?'scanner-no-bet':''}">
    <div class="scanner-v44-status"><span class="sport-chip">${esc(API_CFG[s.match?.sport]?.label||s.match?.sport||'Scanner')} · ${esc(s.provider||'REAL')}</span><span class="scanner-v44-state ${live?'live':s.match?.status==='FINISHED'?'final':''}">${esc(s.match?fixtureStateLabel(s.match):'SIN FIXTURE')}</span></div>
-   <div class="scanner-v44-teams">${esc(parsed.home||'Partido')} <span>vs</span> ${esc(parsed.away||'')}</div>
+   <div class="scanner-v44-teams">${esc(parsed.home||'Partido')} <span>vs</span> ${esc(parsed.away||'')}</div>${s.research?.providerError?`<div class="result" style="border-color:rgba(255,90,90,.35);color:#ffb0b0"><b>FUENTE DE DATOS</b><br><span class="small">${esc(s.research.providerError)}</span></div>`:''}
    <div class="scanner-v44-lines"><span>Línea: ${esc(parsed.lineText??parsed.line??'—')}</span>${parsed.handicap!=null?`<span>Hándicap: ${esc(parsed.handicap>0?'+':'' )}${esc(parsed.handicap)} · ${esc(parsed.handicapTeam||'home')}</span>`:''}<span>${live?'LIVE':'PREPARTIDO'}</span></div>
    <div class="scanner-v44-options">${optionData.map(([label,val])=>`<div class="scanner-v44-option ${selected.includes(label)?'selected':''}"><b>${label}</b><strong>${val==='—'?'—':val+'%'}</strong><small>${selected.includes(label)?'Selección principal':'Señal del modelo'}</small></div>`).join('')}</div>
    <div class="scanner-v44-confidence"><div class="scanner-v44-confidence-row"><span>CONFIANZA DE LA DECISIÓN</span><b>${Math.round(Number((a.confidence??s.snapshot?.confidence)??0))}%</b></div><div class="scanner-v44-meter"><i style="width:${Math.min(100,Number(a.confidence??s.snapshot?.confidence)||0)}%"></i></div><div class="scanner-v44-quality">${qLabel} · ${a.learningPrior?.sample||0} patrones comparables · ${a.learningPrior?.effectiveSample||0} muestra efectiva</div></div>
@@ -1300,7 +1301,7 @@ async function resolveOnline(p){
    const research={};
    if(sport==='football'){
      try{const [hf,af,h2]=await Promise.all([q('/fixtures?team='+match.homeId+'&last=10'),q('/fixtures?team='+match.awayId+'&last=10'),q('/fixtures?h2h='+match.homeId+'-'+match.awayId+'&last=5')]);research.homeForm=hf.response||[];research.awayForm=af.response||[];research.h2h=h2.response||[]}catch(e){research.formError=normalizeApiError(e)}
-     if(match.status==='LIVE'&&match.id){try{const st=await q('/fixtures/statistics?fixture='+match.id);research.liveStats=st.response||[]}catch(e){research.liveStatsError=normalizeApiError(e)}}
+     if(match.status==='LIVE'&&match.id){try{const st=await q('/statistics?fixture='+match.id);research.liveStats=st.response||[]}catch(e){research.liveStatsError=normalizeApiError(e)}}
      try{const pred=await q('/predictions?fixture='+match.id);research.apiPrediction=pred.response?.[0]?.predictions||pred.response?.[0]?.prediction||null}catch(e){research.predictionError=normalizeApiError(e)}
    }else{
      try{
@@ -1324,9 +1325,9 @@ async function analyze(){
  const raw=$('#scannerInput').value.split(/\n+/).map(x=>x.trim()).filter(Boolean);if(!raw.length){toast('Introduce uno o varios partidos con su línea.');return}
  const btn=$('#analyzeBtn');if(btn){btn.disabled=true;btn.textContent='⌁ ANALIZANDO…'}let made=0;
  for(const r of raw){const p=parseLine(r);if(!p||p.error){saveScan({id:'scan_'+Date.now()+'_'+made,parsed:{raw:r,home:'Entrada',away:'inválida'},snapshot:{prediction:'Entrada inválida',confidence:0,frozenAt:new Date().toISOString()},settlement:'ERROR',settlementDetail:p?.error||'Formato inválido',createdAt:new Date().toISOString()});continue}
-  let snap=prediction(p),match=findDemoMatch(p),provider='DEMO',research={};
-  if(WORKER_ENABLED||state.apiKey){try{const online=await resolveOnline(p);if(online){match=online.match;research=online.research||{};const a=match.sport==='football'?buildResearch(p,match,research):buildResearchGeneric(p,match,research);snap={...snap,prediction:a.primary.pick,confidence:a.confidence,reason:a.reasons.join(' '),frozenAt:null,learningPrior:a.learningPrior,modelVersion:'V45-SCANNER-DECISION'};provider='API-'+(API_CFG[match.sport]?.label||match.sport)}}catch(e){provider='API MULTIDEPORTE · '+normalizeApiError(e);research={providerError:normalizeApiError(e)}}}
-  const analysis=match?(match.sport==='football'?buildResearch(p,match,research):buildResearchGeneric(p,match,research)):{primary:{market:marketLabel(p),pick:'SIN APUESTA',reason:'No se pudo identificar el evento real en las APIs disponibles. No se fuerza una selección.'},confidence:0,reasons:['No se identificó el evento real.','La línea original se conserva para reintentar.','No se inventan datos cuando el proveedor no devuelve el partido.'],dataQuality:'NO_APTA',decisionMode:'UNKNOWN',learningPrior:snap.learningPrior,noBet:true,signalScore:{positive:0,negative:0,total:0}};
+  let snap=prediction(p),match=null,provider='REAL_API',research={};
+  if(WORKER_ENABLED||state.apiKey){try{const online=await resolveOnline(p);if(!online)throw new Error('PARTIDO_NO_ENCONTRADO');match=online.match;research=online.research||{};const a=match.sport==='football'?buildResearch(p,match,research):buildResearchGeneric(p,match,research);snap={...snap,prediction:a.primary.pick,confidence:a.confidence,reason:a.reasons.join(' '),frozenAt:null,learningPrior:a.learningPrior,modelVersion:'V45-SCANNER-DECISION'};provider='API-'+(API_CFG[match.sport]?.label||match.sport)}catch(e){provider='ERROR · API';research={...research,providerError:normalizeApiError(e)}}}else{provider='DEMO';match=findDemoMatch(p)}
+  const analysis=match?(match.sport==='football'?buildResearch(p,match,research):buildResearchGeneric(p,match,research)):{primary:{market:marketLabel(p),pick:'SIN APUESTA',reason:'No se pudo identificar el evento real en las APIs disponibles. No se fuerza una selección.'},confidence:0,reasons:[research.providerError?('Error de fuente: '+research.providerError):'No se identificó el evento real.','La línea original se conserva para reintentar.','No se inventan datos cuando el proveedor no devuelve el partido.'],dataQuality:'NO_APTA',decisionMode:'UNKNOWN',learningPrior:snap.learningPrior,noBet:true,signalScore:{positive:0,negative:0,total:0}};
   if(match&&match.status==='CANCELLED'||match?.status==='POSTPONED'){} 
   let settlement='PENDIENTE',detail=match?'Seguimiento automático activo.':'Pendiente de identificar el fixture real.';
   if(match&&['CANCELLED','POSTPONED'].includes(match.status)){settlement='DEVUELTA';detail=`Apuesta devuelta automáticamente: ${fixtureStateLabel(match)}.`}
@@ -1462,7 +1463,7 @@ async function boot(){startRandomThunder();bindV43Home();renderSports();bindAren
 // V39 mobile update: force the PWA to check the newest service worker and reload once after activation.
 (function(){
   if(!('serviceWorker' in navigator)) return;
-  const SW_URL='./sw.js?v=20261001-1545';
+  const SW_URL='./sw.js?v=20261001-1439';
   navigator.serviceWorker.register(SW_URL,{updateViaCache:'none'}).then(reg=>{
     reg.update().catch(()=>{});
     if(reg.waiting){ reg.waiting.postMessage({type:'SKIP_WAITING'}); }
