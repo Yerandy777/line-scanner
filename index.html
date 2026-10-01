@@ -860,7 +860,38 @@ async function renderHome(){
 async function renderLive(){const sport=state.liveFilter==='all'?null:state.liveFilter;const tabs=SPORTS.map(x=>`<button class="ghost ${state.liveFilter===x[0]?'active-filter':''}" data-live-filter="${x[0]}">${x[1]} ${x[2]}</button>`).join('');$('#liveList').innerHTML=`<div class="live-switch"><div class="filter-row"><button class="ghost ${!sport?'active-filter':''}" data-live-filter="all">Todos</button>${tabs}</div></div><div class="empty">Consultando…</div>`;if(!state.apiKey){let a=DEMO.filter(m=>m.status==='LIVE');if(sport)a=a.filter(m=>m.sport===sport);$('#liveList').innerHTML=`<div class="live-switch"><div class="filter-row"><button class="ghost ${!sport?'active-filter':''}" data-live-filter="all">Todos</button>${tabs}</div></div>`+(a.length?a.map(m=>matchCard(m)).join(''):`<div class="empty">Modo DEMO: no hay ${sport?sportLabel(sport).toLowerCase():'partidos'} en vivo.</div>`);return}const keys=sport?[sport]:Object.keys(API_CFG).filter(k=>API_CFG[k]?.live);const all=[];for(const k of keys){try{all.push(...await fetchLiveSport(k,true))}catch(e){state.online[k]={ok:false,error:normalizeApiError(e)}}}const a=all.filter((m,i,x)=>x.findIndex(y=>y.id===m.id&&y.sport===m.sport)===i);$('#liveList').innerHTML=`<div class="live-switch"><div class="filter-row"><button class="ghost ${!sport?'active-filter':''}" data-live-filter="all">Todos</button>${tabs}</div><span>${a.length} eventos en vivo</span></div>`+(a.length?a.map(m=>matchCard(m)).join(''):`<div class="empty">No hay ${sport?sportLabel(sport).toLowerCase():'partidos'} en vivo ahora. Toca un deporte en Inicio para ver también los próximos.</div>`)}
 function normalizeApiError(e){const m=String(e?.message||e);if(m.includes('429')||m.includes('QUOTA'))return 'CUOTA AGOTADA';if(m.includes('401')||m.includes('403')||m.includes('AUTH_REJECTED')||m.includes('FORBIDDEN'))return 'KEY/ACCESO';if(m.includes('NETWORK'))return 'BLOQUEO DE RED/CORS';if(m.includes('TIEMPO'))return 'TIEMPO AGOTADO';return m}
 function apiKeyValue(){const el=document.getElementById('apiKey');const input=el?String(el.value||'').replace(/[\r\n\t]/g,'').trim():'';return input&&!/^•+$/.test(input)?input:String(state.apiKey||'').replace(/[\r\n\t]/g,'').trim()}
-async function apiRequestSport(sport,path,timeout=9000){const key=apiKeyValue();if(!key)throw new Error('FALTA_API_KEY');const cfg=API_CFG[sport];if(!cfg||!cfg.base)throw new Error('API NO DISPONIBLE');const u=new URL(cfg.base+path),c=new AbortController(),timer=setTimeout(()=>c.abort(),timeout);let r;try{r=await fetch(u.toString(),{method:'GET',cache:'no-store',headers:{'x-apisports-key':key,'Accept':'application/json'},signal:c.signal})}catch(e){if(e?.name==='AbortError')throw new Error('TIEMPO AGOTADO');throw new Error('NETWORK: el navegador no pudo llegar a API-Football/API-Sports. Comprueba internet, CORS o restricciones de dominio/IP.')}finally{clearTimeout(timer)}const raw=await r.text();let j={};try{j=JSON.parse(raw)}catch{}const errs=j?.errors&&typeof j.errors==='object'?Object.values(j.errors).flat().map(String):[],msg=errs.join(' · ')||j?.message||j?.error||'';const auth=errs.find(x=>/application key|missing application key|invalid.*key|invalid.*application/i.test(x));if(auth)throw new Error('AUTH_REJECTED: API-Football recibió la clave pero la rechazó. Verifica la key de Account → My Access.');if(r.status===401)throw new Error('AUTH_REJECTED: HTTP 401 · API key inválida o no autorizada.');if(r.status===403)throw new Error('FORBIDDEN: HTTP 403 · acceso denegado. Revisa restricciones de dominio/IP.');if(r.status===429)throw new Error('QUOTA: HTTP 429 · límite/cuota alcanzado.');if(!r.ok)throw new Error('HTTP_'+r.status+(msg?' · '+msg:''));if(errs.length)throw new Error('API_ERROR: '+errs.join(' · '));return j||{}}
+async function apiRequestSport(sport,path,timeout=9000){
+ const cfg=API_CFG[sport];
+ if(!cfg||!cfg.base)throw new Error('API NO DISPONIBLE');
+ const isFootball=sport==='football';
+ const key=apiKeyValue();
+ if(!isFootball&&!key)throw new Error('FALTA_API_KEY');
+ let u;
+ if(isFootball){
+   const cleanPath=String(path||'').replace(/^\/+/, '');
+   const normalized=cleanPath.startsWith('fixtures')?cleanPath:cleanPath;
+   u=new URL('https://flat-term-e886.soleryerandy7.workers.dev/api/'+normalized);
+ }else{
+   u=new URL(cfg.base+path);
+ }
+ const c=new AbortController(),timer=setTimeout(()=>c.abort(),timeout);let r;
+ try{
+   r=await fetch(u.toString(),{method:'GET',cache:'no-store',headers:{...(isFootball?{}:{'x-apisports-key':key}),'Accept':'application/json'},signal:c.signal});
+ }catch(e){
+   if(e?.name==='AbortError')throw new Error('TIEMPO AGOTADO');
+   throw new Error(isFootball?'NETWORK: no se pudo conectar con el Worker de Scanner Pro.':'NETWORK: el navegador no pudo llegar a API-Sports. Comprueba internet, CORS o restricciones.');
+ }finally{clearTimeout(timer)}
+ const raw=await r.text();let j={};try{j=JSON.parse(raw)}catch{}
+ const errs=j?.errors&&typeof j.errors==='object'?Object.values(j.errors).flat().map(String):[],msg=errs.join(' · ')||j?.message||j?.error||'';
+ const auth=errs.find(x=>/application key|missing application key|invalid.*key|invalid.*application/i.test(x));
+ if(auth)throw new Error('AUTH_REJECTED: API key inválida o no autorizada.');
+ if(r.status===401)throw new Error('AUTH_REJECTED: HTTP 401 · API key inválida o no autorizada.');
+ if(r.status===403)throw new Error('FORBIDDEN: HTTP 403 · acceso denegado.');
+ if(r.status===429)throw new Error('QUOTA: HTTP 429 · límite/cuota alcanzado.');
+ if(!r.ok)throw new Error('HTTP_'+r.status+(msg?' · '+msg:''));
+ if(errs.length)throw new Error('API_ERROR: '+errs.join(' · '));
+ return j||{};
+}
 
 function mapGame(sport,g){if(sport==='football'){const st=String(g.fixture?.status?.short||'NS').toUpperCase();return {id:g.fixture?.id,sport,league:g.league?.name||'',leagueId:g.league?.id,home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||'',awayLogo:g.teams?.away?.logo||'',homeScore:g.goals?.home??0,awayScore:g.goals?.away??0,status:isFinishedStatus(st)?'FINISHED':isLiveStatus(st)?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.fixture?.status?.long||'',minute:g.fixture?.status?.elapsed||0,date:g.fixture?.date||'',timestamp:g.fixture?.timestamp||0,odds:[]}}const st=String(g.status?.short??g.status?.long??'').toUpperCase();const finished=isFinishedStatus(st);const live=isLiveStatus(st)||(!finished&&!['NS','NOT STARTED','CANC','CANCELLED','POSTPONED','4','5','6'].includes(st)&&st!=='');return {id:g.id,sport,league:g.league?.name||g.league?.league||g.league||'',home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||g.teams?.home?.image||'',awayLogo:g.teams?.away?.logo||g.teams?.away?.image||'',homeScore:g.scores?.home?.total??g.scores?.home??g.scores?.home?.points??0,awayScore:g.scores?.away?.total??g.scores?.away??g.scores?.away?.points??0,status:finished?'FINISHED':live?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.status?.long||'',minute:g.status?.timer||g.status?.elapsed||st,date:g.date||g.datetime||'',timestamp:g.timestamp||g.date?.timestamp||0,odds:[]}}
 async function fetchLiveSport(sport,cache=true){const cfg=API_CFG[sport];if(!cfg?.live)throw new Error(cfg?.kind==='unsupported'?'API NO DISPONIBLE':'LIVE NO DISPONIBLE');const now=Date.now(),c=state.liveCache[sport];if(cache&&c&&now-c.ts<45000)return c.rows;const j=await apiRequestSport(sport,cfg.live);const rows=(j.response||[]).map(x=>mapGame(sport,x)).filter(x=>x.status==='LIVE');state.liveCache[sport]={ts:now,rows};state.online[sport]={ok:true,results:j.results??rows.length};return rows}
