@@ -1,1 +1,0 @@
-document.addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(window.LineScannerPro&&typeof window.LineScannerPro.navigate==='function')window.LineScannerPro.navigate(p);});
