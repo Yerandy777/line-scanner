@@ -1,25 +1,25 @@
-LINE SCANNER PRO V45 · REAL LIVE FIX
+LINE SCANNER PRO V45 · REAL DATA / LIVE / SCANNER
 
-BASE: LINE-SCANNER-PRO-V45-REAL-LIVE-FIX.zip
+IMPORTANTE
+1. Sube el contenido de este ZIP a la raiz de GitHub Pages.
+2. index.html debe quedar en la raiz.
+3. Cloudflare Worker: usa worker.js como codigo del Worker.
+4. En Cloudflare > Settings > Variables and Secrets crea el secreto:
+   API_FOOTBALL_KEY = TU_CLAVE_DE_API-FOOTBALL
+5. El navegador NO necesita la API key.
+6. Worker URL esperada por index.html:
+   https://flat-term-e886.soleryerandy7.workers.dev
 
-Se conserva la interfaz y funciones existentes de V45. Reparaciones incluidas:
-- Scanner Pro reconoce prefijos de deporte (NBA, MLB, NHL, F1, etc.) y conserva la entrada original.
-- Resolución real del fixture para fútbol y deportes compatibles con API-Sports.
-- Prioridad LIVE > FINALIZADO > PRÓXIMO al localizar un partido.
-- Búsqueda por fechas actuales y recientes para encontrar partidos ya terminados.
-- Marcadores genéricos corregidos para baloncesto/béisbol/hockey/etc.
-- Seguimiento LIVE y estadísticas cuando el proveedor las entrega.
-- Finalizados ampliado a multideporte.
-- Service Worker/cache versionado para evitar que iPhone cargue una V45 antigua.
-- No se eliminan las demás pantallas ni el diseño de V45.
+CORRECCIONES V45
+- Futbol usa /fixtures, no /games.
+- Scanner busca equipos y el fixture real, incluyendo partidos finalizados.
+- Live usa /fixtures?live=all.
+- Estadisticas live usa /fixtures/statistics.
+- Forma/H2H usan /fixtures.
+- Finalizados consulta fechas reales.
+- La API key queda en Cloudflare, no en el HTML.
+- Cache del Worker reduce solicitudes repetidas.
+- El Scanner conserva la linea original, identifica estado LIVE/FINAL y liquida automaticamente.
 
-IMPORTANTE: para deportes distintos de fútbol se necesita una API key de API-Sports válida en Configuración; fútbol puede usar el Worker configurado.
-
-REVISIÓN 2026-10-01 · SCANNER DECISION ENGINE
-- La decisión compara HÁNDICAP / OVER / UNDER antes de elegir una sola opción.
-- Las señales de porcentaje del Scanner usan la probabilidad estimada del candidato, no un porcentaje arbitrario de interfaz.
-- Se aplica un umbral de decisión: si la evidencia no alcanza el mínimo, el resultado es SIN APUESTA.
-- La decisión ya no se marca como congelada automáticamente; se congela con el botón CONGELAR DECISIÓN.
-- La resolución de fútbol prioriza consultas por equipos y reduce descargas masivas por fecha; mantiene un fallback por fecha.
-- Cloudflare Worker sigue siendo el puente de fútbol y conserva API_FOOTBALL_KEY como secreto.
-- No se incluyen claves secretas en este ZIP.
+LIMITACION ACTUAL
+Esta conexion V45 usa API-Football para futbol. Los demas deportes del HTML no quedan convertidos automaticamente a API-Football porque son APIs distintas.
