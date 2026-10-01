@@ -564,7 +564,7 @@ body{background:#000814}
 </div>
 <script>
 (function(){'use strict';
-const VERSION='V45 SCANNER PRO · REAL LIVE · DECISION ENGINE FIX';
+const VERSION='V45 SCANNER PRO · REAL LIVE · RATE LIMIT FIX';
 const WORKER_ENABLED=true;
 const SPORTS=[['football','⚽','Fútbol'],['basketball','🏀','Baloncesto'],['baseball','⚾','Béisbol'],['hockey','🏒','Hockey'],['f1','🏎️','F1'],['mma','🥊','MMA'],['rugby','🏉','Rugby'],['volleyball','🏐','Voleibol'],['tennis','🎾','Tenis']];
 const API_CFG={
@@ -1197,27 +1197,40 @@ function renderScanner(){
  const rows=state.scans.map((s,i)=>({s,i})).filter(({s})=>scanMatchesRange(s)).filter(({s})=>scanStatusMatch(s)).filter(({s})=>scanMarketMatch(s)).filter(({s})=>scanQualityMatch(s)).filter(({s})=>!q||`${s.parsed?.home||''} ${s.parsed?.away||''} ${s.parsed?.raw||''}`.toLowerCase().includes(q));
  if(!rows.length){box.innerHTML='<div class="empty">Escribe un partido arriba y pulsa BUSCAR DATOS Y ANALIZAR.</div>';return;}
  box.innerHTML=rows.map(({s,i})=>{
-  const a=s.analysis||{}, parsed=s.parsed||{}, pick=String(a.primary?.pick||s.snapshot?.prediction||'SIN SEÑAL');
-  const frozen=!!(s.frozen||s.snapshot?.frozenAt||s.featureSnapshot?.frozenAt); const settled=['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement); const live=s.match?.status==='LIVE';
-  const quality=a.dataQuality||'NO_APTA'; const qLabel=quality==='BUENA'?'DATOS COMPLETOS':quality==='MEDIA'?'DATOS SUFICIENTES':quality==='LIMITADA'?'DATOS LIMITADOS':'DATOS INSUFICIENTES';
+  const a=s.analysis||{}, parsed=s.parsed||{}, match=s.match||{}, pick=String(a.primary?.pick||s.snapshot?.prediction||'SIN SEÑAL');
+  const frozen=!!(s.frozen||s.snapshot?.frozenAt||s.featureSnapshot?.frozenAt);
+  const settled=['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement);
+  const live=match.status==='LIVE', final=match.status==='FINISHED';
+  const quality=a.dataQuality||'NO_APTA';
+  const qLabel=quality==='BUENA'?'DATOS COMPLETOS':quality==='MEDIA'?'DATOS SUFICIENTES':quality==='LIMITADA'?'DATOS LIMITADOS':'DATOS INSUFICIENTES';
   const optionData=[['HÁNDICAP',parsed.handicap!=null?scanOptionSignal(a,parsed,'HÁNDICAP'):'—'],['OVER',parsed.line!=null?scanOptionSignal(a,parsed,'OVER'):'—'],['UNDER',parsed.line!=null?scanOptionSignal(a,parsed,'UNDER'):'—']];
-  const liveStats=a.liveStats; const selected=pick.toUpperCase();
+  const selected=pick.toUpperCase();
+  const scoreKnown=match.id!=null && (match.homeScore!=null||match.awayScore!=null);
+  const scoreText=scoreKnown?`${Number(match.homeScore)||0} - ${Number(match.awayScore)||0}`:'—';
+  const stateText=match.id?fixtureStateLabel(match):'NO DISPONIBLE';
+  const source=s.provider||'REAL_API';
   return `<div class="card scanner-v44-result ${a.noBet?'scanner-no-bet':''}">
-   <div class="scanner-v44-status"><span class="sport-chip">${esc(API_CFG[s.match?.sport]?.label||s.match?.sport||'Scanner')} · ${esc(s.provider||'REAL')}</span><span class="scanner-v44-state ${live?'live':s.match?.status==='FINISHED'?'final':''}">${esc(s.match?fixtureStateLabel(s.match):'SIN FIXTURE')}</span></div>
-   <div class="scanner-v44-teams">${esc(parsed.home||'Partido')} <span>vs</span> ${esc(parsed.away||'')}</div>${s.research?.providerError?`<div class="result" style="border-color:rgba(255,90,90,.35);color:#ffb0b0"><b>FUENTE DE DATOS</b><br><span class="small">${esc(s.research.providerError)}</span></div>`:''}
-   <div class="scanner-v44-lines"><span>Línea: ${esc(parsed.lineText??parsed.line??'—')}</span>${parsed.handicap!=null?`<span>Hándicap: ${esc(parsed.handicap>0?'+':'' )}${esc(parsed.handicap)} · ${esc(parsed.handicapTeam||'home')}</span>`:''}<span>${live?'LIVE':'PREPARTIDO'}</span></div>
-   <div class="scanner-v44-options">${optionData.map(([label,val])=>`<div class="scanner-v44-option ${selected.includes(label)?'selected':''}"><b>${label}</b><strong>${val==='—'?'—':val+'%'}</strong><small>${selected.includes(label)?'Selección principal':'Señal del modelo'}</small></div>`).join('')}</div>
-   <div class="scanner-v44-confidence"><div class="scanner-v44-confidence-row"><span>CONFIANZA DE LA DECISIÓN</span><b>${Math.round(Number((a.confidence??s.snapshot?.confidence)??0))}%</b></div><div class="scanner-v44-meter"><i style="width:${Math.min(100,Number(a.confidence??s.snapshot?.confidence)||0)}%"></i></div><div class="scanner-v44-quality">${qLabel} · ${a.learningPrior?.sample||0} patrones comparables · ${a.learningPrior?.effectiveSample||0} muestra efectiva</div></div>
-   <div style="margin-top:9px"><div class="small">MEJOR OPCIÓN</div><div class="decision-pick">${esc(pick)}</div></div>
+   <div class="scanner-v44-status"><span class="sport-chip">${esc(API_CFG[match.sport]?.label||match.sport||'Scanner')}</span><span class="scanner-v44-state ${live?'live':final?'final':''}">${esc(stateText)}</span></div>
+   <div class="scanner-v44-teams">${esc(parsed.home||match.home||'Partido')} <span>vs</span> ${esc(parsed.away||match.away||'')}</div>
+   <div class="result" style="margin-top:8px"><b>FUENTE DE DATOS</b><br><span class="small">${esc(source)}${s.research?.providerError?' · '+esc(s.research.providerError):''}</span></div>
+   <div class="scanner-auto-summary">
+    <div class="metric"><b>${esc(stateText)}</b><span>ESTADO DEL PARTIDO</span></div>
+    <div class="metric"><b>${esc(scoreText)}</b><span>MARCADOR</span></div>
+    <div class="metric"><b>${esc(match.minute?match.minute+"'":final?'FINAL':live?'LIVE':'—')}</b><span>TIEMPO</span></div>
+   </div>
+   <div class="scanner-v44-lines"><span>LÍNEA: ${esc(parsed.lineText??parsed.line??'—')}</span>${parsed.handicap!=null?`<span>HÁNDICAP: ${esc(parsed.handicap>0?'+':'')}${esc(parsed.handicap)} · ${esc(parsed.handicapTeam==='away'?'VISITANTE':'LOCAL')}</span>`:''}</div>
+   <div class="small" style="margin-top:9px">MERCADOS</div>
+   <div class="scanner-v44-options">${optionData.map(([label,val])=>`<div class="scanner-v44-option ${selected.includes(label)?'selected':''}"><b>${label}</b><strong>${val==='—'?'—':val+'%'}</strong><small>${selected.includes(label)?'SELECCIÓN PRINCIPAL':'SEÑAL DEL MODELO'}</small></div>`).join('')}</div>
+   <div class="scanner-v44-confidence"><div class="scanner-v44-confidence-row"><span>CONFIANZA DE LA DECISIÓN</span><b>${Math.round(Number((a.confidence??s.snapshot?.confidence)??0))}%</b></div><div class="scanner-v44-meter"><i style="width:${Math.min(100,Number(a.confidence??s.snapshot?.confidence)||0)}%"></i></div><div class="scanner-v44-quality">${qLabel} · ${a.learningPrior?.sample||0} patrones comparables</div></div>
+   <div style="margin-top:10px"><div class="small">DECISIÓN</div><div class="decision-pick">${esc(pick)}</div><div class="decision-reason">${esc(a.primary?.reason||s.settlementDetail||'Sin decisión disponible.')}</div></div>
    <div class="scanner-v44-reasons">${(a.reasons||[a.primary?.reason||'Sin fundamentación']).slice(0,5).map(x=>`<div>${esc(x)}</div>`).join('')}</div>
-   ${live&&liveStats?`<div class="scanner-v44-live"><div class="small">ANÁLISIS LIVE · ESTADÍSTICAS DISPONIBLES</div><div class="scanner-v44-live-grid">${Object.entries(liveStats).map(([k,v])=>`<div class="scanner-v44-live-cell"><b>${esc(v?.[0]??'—')} - ${esc(v?.[1]??'—')}</b><span>${esc(k)}</span></div>`).join('')}</div></div>`:''}
+   ${live&&a.liveStats?`<div class="scanner-v44-live"><div class="small">ANÁLISIS LIVE · ESTADÍSTICAS</div></div>`:''}
    <div class="result" style="margin-top:9px"><b class="${s.settlement==='GANADA'?'win':s.settlement==='PERDIDA'?'loss':s.settlement==='PUSH'?'push':s.settlement==='DEVUELTA'?'void':''}">${esc(s.settlement||'PENDIENTE')}</b> <span class="small">${esc(s.settlementDetail||'Seguimiento activo')}</span></div>
    <div class="scanner-v44-actions"><button class="ghost ${frozen?'scanner-v44-frozen':''}" data-scan-freeze="${i}">${frozen?'✓ DECISIÓN CONGELADA':'❄ CONGELAR DECISIÓN'}</button><button class="ghost" data-scan-detail="${i}">VER ANÁLISIS</button></div>
-   ${s.match?.id&&!settled?`<button class="ghost refresh-real" data-refresh-scan="${i}" style="width:100%;margin-top:6px">↻ ACTUALIZAR DATOS LIVE</button>`:''}
+   ${match.id&&!settled?`<button class="ghost refresh-real" data-refresh-scan="${i}" style="width:100%;margin-top:6px">↻ ACTUALIZAR DATOS LIVE</button>`:''}
   </div>`;
  }).join('');
 }
-
 function fixtureStatus(st){
  const x=String(st||'').toUpperCase();
  if(['FT','AET','PEN','AWD','WO','ABD','CANC','CANCELLED'].includes(x))return ['CANC','CANCELLED'].includes(x)?'CANCELLED':'FINISHED';
@@ -1243,10 +1256,10 @@ function fixtureStateLabel(m){
 function sameTeam(a,b){const x=normalizeName(a),y=normalizeName(b);return x===y||x.includes(y)||y.includes(x)}
 async function resolveOnline(p){
  const map={nba:'basketball',wnba:'basketball',ncaa:'basketball',fiba:'basketball',baloncesto:'basketball',basket:'basketball',mlb:'baseball',beisbol:'baseball',baseball:'baseball',nhl:'hockey',hockey:'hockey',nfl:'football',rugby:'rugby',voleibol:'volleyball',volleyball:'volleyball',futbol:'football','fútbol':'football',football:'football',tenis:'tennis',tennis:'tennis',f1:'f1','formula 1':'f1'};
- const sport=p.sportHint||map[String(p.raw||'').toLowerCase().match(/(?:^|\\s)(nba|wnba|ncaa|fiba|mlb|beisbol|baseball|nhl|hockey|nfl|rugby|voleibol|volleyball|futbol|fútbol|football|tenis|tennis|f1)(?:\\s|:|$)/i)?.[1]?.toLowerCase()]||'football';
+ const sport=p.sportHint||map[String(p.raw||'').toLowerCase().match(/(?:^|\s)(nba|wnba|ncaa|fiba|mlb|beisbol|baseball|nhl|hockey|nfl|rugby|voleibol|volleyball|futbol|fútbol|football|tenis|tennis|f1)(?:\s|:|$)/i)?.[1]?.toLowerCase()]||'football';
  if(!API_CFG[sport]?.base)return null;
  const q=path=>apiRequestSport(sport,path);
- const teamPath=sport==='football'?'/teams?search=':'/teams?search=';
+ const teamPath='/teams?search=';
  const teamRows=async name=>{const j=await q(teamPath+encodeURIComponent(name));return j.response||[]};
  const pickTeam=(rows,name)=>{
    const target=normalizeName(name);
@@ -1258,34 +1271,29 @@ async function resolveOnline(p){
    })[0]||null;
  };
  try{
-   const [hr,ar]=await Promise.all([teamRows(p.home),teamRows(p.away)]);
+   // HARD API BUDGET: resolver uses at most 5 calls before returning a fixture.
+   // Do not call predictions automatically; it was a major source of per-minute rate-limit errors.
+   const hr=await teamRows(p.home), ar=await teamRows(p.away);
    const ht=pickTeam(hr,p.home),at=pickTeam(ar,p.away);
    if(!ht||!at)throw new Error('EQUIPOS_NO_ENCONTRADOS');
    const hId=ht.id,aId=at.id;
    const matchPair=g=>{const gh=g.teams?.home?.id,ga=g.teams?.away?.id;return (String(gh)===String(hId)&&String(ga)===String(aId))||(String(gh)===String(aId)&&String(ga)===String(hId));};
    let games=[];
    if(sport==='football'){
-     // Resolve by the two team IDs first. This avoids downloading every fixture of a date.
-     const results2=await Promise.all([
-       q('/fixtures?team='+hId+'&next=20').catch(()=>({response:[]})),
-       q('/fixtures?team='+hId+'&last=20').catch(()=>({response:[]})),
-       q('/fixtures?team='+aId+'&next=20').catch(()=>({response:[]})),
-       q('/fixtures?team='+aId+'&last=20').catch(()=>({response:[]}))
-     ]);
-     games=results2.flatMap(j=>j.response||[]).filter(matchPair);
-     // Only if the pair was not found do we fall back to the current dates.
+     // One call for the direct H2H fixture list. This is enough to locate past/live/upcoming games.
+     const j=await q('/fixtures?h2h='+hId+'-'+aId+'&last=20');
+     games=(j.response||[]).filter(matchPair);
      if(!games.length){
-       const dates=[todayISO(),daysAgoISO(1),tomorrowISO()];
-       const results=await Promise.all(dates.map(d=>q('/fixtures?date='+d).catch(()=>({response:[]}))));
-       games=results.flatMap(j=>j.response||[]).filter(matchPair);
+       // One narrow fallback for today's fixtures only. Never fan out across many dates.
+       const j2=await q('/fixtures?date='+todayISO());
+       games=(j2.response||[]).filter(matchPair);
      }
    }else if(['basketball','baseball','hockey','rugby','volleyball'].includes(sport)){
-     const dates=[todayISO(),daysAgoISO(1),tomorrowISO(),daysAgoISO(2),daysAgoISO(3)];
-     const results=await Promise.all(dates.map(d=>q('/games?date='+d).catch(()=>({response:[]}))));
-     games=results.flatMap(j=>j.response||[]).filter(matchPair);
+     const j=await q('/games?team='+hId+'&season='+new Date().getFullYear());
+     games=(j.response||[]).filter(matchPair);
      if(!games.length){
-       const results2=await Promise.all([q('/games?team='+hId+'&season='+new Date().getFullYear()).catch(()=>({response:[]})),q('/games?team='+aId+'&season='+new Date().getFullYear()).catch(()=>({response:[]}))]);
-       games=results2.flatMap(j=>j.response||[]).filter(matchPair);
+       const j2=await q('/games?team='+aId+'&season='+new Date().getFullYear());
+       games=(j2.response||[]).filter(matchPair);
      }
    }else return null;
    const uniq=games.filter((g,i,a)=>a.findIndex(x=>String(x.id||x.fixture?.id)===String(g.id||g.fixture?.id))===i);
@@ -1300,16 +1308,27 @@ async function resolveOnline(p){
    const g=uniq[0],match=mapGame(sport,g);match.homeId=g.teams?.home?.id;match.awayId=g.teams?.away?.id;
    const research={};
    if(sport==='football'){
-     try{const [hf,af,h2]=await Promise.all([q('/fixtures?team='+match.homeId+'&last=10'),q('/fixtures?team='+match.awayId+'&last=10'),q('/fixtures?h2h='+match.homeId+'-'+match.awayId+'&last=5')]);research.homeForm=hf.response||[];research.awayForm=af.response||[];research.h2h=h2.response||[]}catch(e){research.formError=normalizeApiError(e)}
-     if(match.status==='LIVE'&&match.id){try{const st=await q('/statistics?fixture='+match.id);research.liveStats=st.response||[]}catch(e){research.liveStatsError=normalizeApiError(e)}}
-     try{const pred=await q('/predictions?fixture='+match.id);research.apiPrediction=pred.response?.[0]?.predictions||pred.response?.[0]?.prediction||null}catch(e){research.predictionError=normalizeApiError(e)}
+     // Only two historical form calls. Predictions are deliberately NOT automatic.
+     try{
+       const [hf,af]=await Promise.all([
+         q('/fixtures?team='+match.homeId+'&last=10'),
+         q('/fixtures?team='+match.awayId+'&last=10')
+       ]);
+       research.homeForm=hf.response||[];research.awayForm=af.response||[];
+     }catch(e){research.formError=normalizeApiError(e);research.homeForm=[];research.awayForm=[]}
+     if(match.status==='LIVE'&&match.id){
+       // Live statistics are one extra call, only for an actual live fixture.
+       try{const st=await q('/statistics?fixture='+match.id);research.liveStats=st.response||[]}catch(e){research.liveStatsError=normalizeApiError(e)}
+     }
    }else{
      try{
-       const [h1,h2]=await Promise.all([q('/games?team='+match.homeId+'&season='+new Date().getFullYear()),q('/games?team='+match.awayId+'&season='+new Date().getFullYear())]);
-       research.homeForm=(h1.response||[]).filter(x=>String(x.id)!==String(match.id));research.awayForm=(h2.response||[]).filter(x=>String(x.id)!==String(match.id));
-     }catch(e){research.formError=normalizeApiError(e)}
-     try{const h2=await q('/games?h2h='+match.homeId+'-'+match.awayId);research.h2h=h2.response||[]}catch(e){research.h2h=[]}
-     if(match.status==='LIVE'&&match.id){try{const st=await q('/games/statistics?game='+match.id);research.liveStats=st.response||[]}catch(e){research.liveStatsError=normalizeApiError(e)}}
+       const [h1,h2]=await Promise.all([
+         q('/games?team='+match.homeId+'&season='+new Date().getFullYear()),
+         q('/games?team='+match.awayId+'&season='+new Date().getFullYear())
+       ]);
+       research.homeForm=(h1.response||[]).filter(x=>String(x.id)!==String(match.id));
+       research.awayForm=(h2.response||[]).filter(x=>String(x.id)!==String(match.id));
+     }catch(e){research.formError=normalizeApiError(e);research.homeForm=[];research.awayForm=[]}
    }
    return {match,research,sport};
  }catch(e){state.online[sport]={ok:false,error:normalizeApiError(e)};throw e}
@@ -1463,7 +1482,7 @@ async function boot(){startRandomThunder();bindV43Home();renderSports();bindAren
 // V39 mobile update: force the PWA to check the newest service worker and reload once after activation.
 (function(){
   if(!('serviceWorker' in navigator)) return;
-  const SW_URL='./sw.js?v=20261001-1439';
+  const SW_URL='./sw.js?v=20261001-1545';
   navigator.serviceWorker.register(SW_URL,{updateViaCache:'none'}).then(reg=>{
     reg.update().catch(()=>{});
     if(reg.waiting){ reg.waiting.postMessage({type:'SKIP_WAITING'}); }
