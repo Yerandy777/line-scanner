@@ -732,30 +732,43 @@ function parseLine(raw){
  if(!text)return {error:'Entrada vacía',raw:text};
  const m=text.match(/^(.*?)\s+(?:vs\.?|v\.?|🆚|contra)\s+(.*)$/i);
  if(!m)return {error:'Formato esperado: Equipo A vs Equipo B [hándicap] (línea de goles)',raw:text};
- const home=m[1].trim(); let rest=m[2].trim();
+ let home=m[1].trim(), rest=m[2].trim();
  let line=null,lineText=null,totalSide=null;
  const lm=rest.match(/\(([^()]*)\)\s*$/);
  if(lm){
    lineText=lm[1].trim();rest=rest.slice(0,lm.index).trim();
    const range=lineText.match(/([+-]?\d+(?:[\.,]\d+)?)\s*[-–]\s*([+-]?\d+(?:[\.,]\d+)?)/);
    const nums=lineText.match(/[+-]?\d+(?:[\.,]\d+)?/g)||[];
-   if(range){const a=Number(range[1].replace(',','.')),b=Number(range[2].replace(',','.'));line=(a+b)/2;}
-   else if(nums.length>=1)line=Number(nums[0].replace(',','.'));
+   if(range){
+     let a=Number(range[1].replace(',','.')),b=Number(range[2].replace(',','.'));
+     // A goal range such as 2-2.5 means 2.0/2.5, not 2/-2.5.
+     if(a>=0&&b<0)b=Math.abs(b);
+     line=(a+b)/2;
+   }else if(nums.length===1)line=Number(nums[0].replace(',','.'));
    if(/\bunder\b|\bmenos\b/i.test(lineText))totalSide='UNDER';
    else if(/\bover\b|\bmas\b|\bmás\b/i.test(lineText))totalSide='OVER';
  }
- let handicap=null,handicapTeam=null,away=rest;
- const hm=rest.match(/(?:^|\s|[A-Za-z])([+-]\d+(?:[\.,]\d+)?)(?=\s|$)/);
- if(hm){
-   handicap=Number(hm[1].replace(',','.'));
-   const token=hm[1], tokenPos=rest.indexOf(token), before=rest.slice(0,tokenPos).trim(), after=rest.slice(tokenPos+token.length).trim();
-   // After `vs`, a handicap attached to the second team's name belongs to the away side.
-   // Examples: `vs Serbia+2`, `vs Arsenal +0.5`, `vs p-0.5 Orsomarso`.
-   if(!before){handicapTeam='away';away=after;}
-   else if(!after){handicapTeam='away';away=before;}
-   else {handicapTeam='away';away=(before+' '+after).replace(/^p\s*/i,'').trim();}
- }
- if(!away)return {error:'No se pudo identificar el segundo equipo',raw:text};
+ let handicap=null,handicapTeam=null;
+ const cleanHandicapSegment=(segment,team)=>{
+   let x=String(segment||'').trim();
+   // Support common Asian notation: +1.5-2, +1.5/+2, -1.5--2 and p-0.5.
+   const re=/([+-]\d+(?:[\.,]\d+)?)(?:\s*[\/–-]\s*(\d+(?:[\.,]\d+)?))?(?=\s|$)/i;
+   const hit=x.match(re);
+   if(!hit)return {team:x,handicap:null};
+   let a=Number(hit[1].replace(',','.')),h=a;
+   if(hit[2]!=null){let b=Number(hit[2].replace(',','.'));if(a<0)b=-b;h=(a+b)/2;}
+   const cleaned=(x.slice(0,hit.index)+x.slice(hit.index+hit[0].length)).replace(/^\s*p\s*/i,'').replace(/\s+/g,' ').trim();
+   return {team:cleaned,handicap:h,teamSide:team};
+ };
+ // First look for a handicap on either side. This fixes inputs such as
+ // `Nicaragua +1.5-2 vs Costa Rica` and `Alemania vs Serbia +2`.
+ const homeParsed=cleanHandicapSegment(home,'home');
+ const awayParsed=cleanHandicapSegment(rest,'away');
+ if(homeParsed.handicap!=null){handicap=homeParsed.handicap;handicapTeam='home';home=homeParsed.team;rest=awayParsed.team;}
+ else if(awayParsed.handicap!=null){handicap=awayParsed.handicap;handicapTeam='away';rest=awayParsed.team;home=homeParsed.team;}
+ else {home=homeParsed.team;rest=awayParsed.team;}
+ const away=String(rest||'').trim();
+ if(!home||!away)return {error:'No se pudieron identificar los dos equipos',raw:text};
  return {raw:text,home,away,line,lineText,totalSide,handicap,handicapTeam};
 }
 function splitQuarter(n){
@@ -1046,117 +1059,85 @@ function buildResearch(parsed,match,research){
  const h2h=summarizeH2H(research?.h2h,match?.homeId,match?.awayId);
  const homeExp=(hf.avgGF+af.avgGA)/2;
  const awayExp=(af.avgGF+hf.avgGA)/2;
- let totalExp=+(homeExp+awayExp).toFixed(2);
- const marginExp=+(homeExp-awayExp).toFixed(2);
- const apiOU=research?.apiPrediction?.under_over;
+ let teamTotal=+(homeExp+awayExp).toFixed(2);
+ let totalExp=teamTotal;
+ let marginExp=+(homeExp-awayExp).toFixed(2);
+ // H2H is context, not a replacement for current form. Blend it lightly when enough data exists.
+ if(h2h.n>=3){totalExp=+(teamTotal*.72+h2h.avgTotal*.28).toFixed(2);marginExp=+(marginExp*.72+h2h.homeMargin*.28).toFixed(2)}
  const live=match?.status==='LIVE';
  const lp=live?liveProjection(parsed,match,totalExp):null;
- const targetTotal=live?lp.projectedFinal:totalExp;
+ const targetTotal=live&&Number.isFinite(lp?.projectedFinal)?lp.projectedFinal:totalExp;
  const signals=[];
  const candidates=[];
  const liveExtra=liveStatsSignals(research);
- if(live){signals.push(...liveExtra.signals);}
+ if(live)signals.push(...liveExtra.signals);
+ const prior=learningProfile(parsed,match);
+ const quality=(()=>{const n=hf.n+af.n+h2h.n;return n>=10?'BUENA':n>=5?'MEDIA':n>=1?'LIMITADA':'NO_APTA'})();
+ const qBonus=quality==='BUENA'?7:quality==='MEDIA'?4:quality==='LIMITADA'?1:-8;
+ const historyBonus=Number.isFinite(prior.similarRate)?Math.max(-5,Math.min(8,(prior.similarRate-50)*.12)):0;
+ const sigmoid=(x,scale)=>50+42*Math.tanh(x/Math.max(.01,scale));
 
- // Total line signal
+ // Build BOTH sides of the total market. This is important: the engine must compare OVER vs UNDER,
+ // not merely choose one side and then display two symmetric numbers.
  if(parsed.line!=null){
-   let side=parsed.totalSide;
-   if(!side) side=targetTotal>parsed.line?'OVER':'UNDER';
-   const gap=+(targetTotal-parsed.line).toFixed(2);
-   const abs=Math.abs(gap);
-   const modelSignal=gap>0.12?'OVER':gap<-0.12?'UNDER':'NEUTRAL';
-   if(modelSignal!=='NEUTRAL')signals.push({name:'Proyección vs línea',value:`${targetTotal} vs ${parsed.line}`,state:abs>=.5?'ok':abs>=.2?'warn':'bad'});
-   if(apiOU){
-     const ext=String(apiOU).toUpperCase();
-     const agrees=ext.includes(side);
-     signals.push({name:'Señal externa',value:ext,state:agrees?'ok':'bad'});
-   } else signals.push({name:'Señal externa',value:'NO DISPONIBLE',state:'warn'});
-   if(abs>=.18){
-     candidates.push({market:'Over/Under',pick:`${side} ${parsed.line}`,reason:`${live?'Proyección en vivo':'Proyección prepartido'} ${targetTotal} frente a línea ${parsed.line}; diferencia ${gap>0?'+':''}${gap}.`});
-   }
+   const edge=+(targetTotal-parsed.line).toFixed(2);
+   const abs=Math.abs(edge);
+   const overProb=Math.round(Math.max(5,Math.min(95,sigmoid(edge,.38)+qBonus+historyBonus)));
+   const underProb=Math.round(Math.max(5,Math.min(95,sigmoid(-edge,.38)+qBonus+historyBonus)));
+   const totalState=abs>=.55?'ok':abs>=.20?'warn':'bad';
+   signals.push({name:'Total vs línea',value:`${targetTotal} vs ${parsed.line}`,state:totalState});
+   candidates.push({market:'Over/Under',pick:`OVER ${parsed.line}`,side:'OVER',probability:overProb,edge,reason:`Proyección ${targetTotal} frente a ${parsed.line}; diferencia ${edge>=0?'+':''}${edge}.`});
+   candidates.push({market:'Over/Under',pick:`UNDER ${parsed.line}`,side:'UNDER',probability:underProb,edge:-edge,reason:`Proyección ${targetTotal} frente a ${parsed.line}; diferencia para UNDER ${(-edge)>=0?'+':''}${(-edge).toFixed(2)}.`});
  }
 
- // Handicap signal
+ // Handicap: calculate the side that actually receives the entered handicap.
  if(parsed.handicap!=null){
    const team=parsed.handicapTeam||'home';
    const adjusted=team==='home'?marginExp+parsed.handicap:-marginExp+parsed.handicap;
    const side=adjusted>=0?'LOCAL':'VISITANTE';
-   const edge=Math.abs(adjusted);
-   signals.push({name:'Margen vs hándicap',value:`${marginExp} / ajuste ${adjusted.toFixed(2)}`,state:edge>=.5?'ok':edge>=.2?'warn':'bad'});
-   if(edge>=.18)candidates.push({
-     market:'Hándicap',
-     pick:`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`,
-     reason:`Margen esperado ${marginExp}; ajuste de la línea para ${team==='home'?'local':'visitante'} = ${adjusted.toFixed(2)}.`
-   });
+   const abs=Math.abs(adjusted);
+   const handicapProb=Math.round(Math.max(5,Math.min(95,sigmoid(adjusted,.45)+qBonus+historyBonus)));
+   const oppositeProb=Math.round(Math.max(5,Math.min(95,sigmoid(-adjusted,.45)+qBonus+historyBonus)));
+   signals.push({name:'Margen vs hándicap',value:`${marginExp} / ajuste ${adjusted.toFixed(2)}`,state:abs>=.55?'ok':abs>=.20?'warn':'bad'});
+   const label=`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`;
+   candidates.push({market:'Hándicap',pick:label,side,probability:handicapProb,edge:adjusted,reason:`Margen esperado ${marginExp}; ajuste para ${team==='home'?'local':'visitante'} = ${adjusted.toFixed(2)}.`});
  }
 
- // Context signals
  signals.push({name:'Forma reciente',value:`${hf.n}+${af.n} partidos`,state:(hf.n>=4&&af.n>=4)?'ok':(hf.n||af.n)?'warn':'bad'});
  signals.push({name:'H2H',value:h2h.n?`${h2h.n} partidos · ${h2h.avgTotal} goles`:'SIN MUESTRA',state:h2h.n>=3?'ok':h2h.n?'warn':'bad'});
 
- // Choose only after comparing signals, not simply the first market.
- const positive=signals.filter(x=>x.state==='ok').length;
- const negative=signals.filter(x=>x.state==='bad').length;
- const dataCount=hf.n+af.n+h2h.n;
- const quality=dataCount>=10?'BUENA':dataCount>=5?'MEDIA':dataCount>=1?'LIMITADA':'NO_APTA';
-
- // Prefer a candidate supported by the strongest independent signals.
- let primary=null;
- if(candidates.length){
-   const scored=candidates.map(c=>{
-     const txt=c.pick.toUpperCase();
-     let score=0;
-     if(apiOU && parsed.line!=null && String(apiOU).toUpperCase().includes(txt.split(' ')[0]))score+=2;
-     if(c.market==='Over/Under'){
-       score+=Math.min(4,Math.round(Math.abs(targetTotal-parsed.line)*4));
-     }else score+=Math.min(4,Math.round(Math.abs(marginExp+(parsed.handicap||0))*4));
-     score+=positive*.35-negative*.45;
-     return {...c,score};
-   }).sort((a,b)=>b.score-a.score);
-   primary=scored[0];
- }
-
- // No-bet gate: insufficient data or contradictory/weak edge.
- const edgeOK=primary && (primary.market==='Over/Under'
-   ? Math.abs(targetTotal-(parsed.line??targetTotal))>=.18
-   : Math.abs(marginExp+(parsed.handicap||0))>=.18);
- const enough=quality!=='NO_APTA' && positive>=1 && edgeOK;
+ // Give a small bonus to the requested side when the user explicitly wrote OVER/UNDER,
+ // but never allow that preference to override a clearly stronger model signal.
+ if(parsed.totalSide){for(const c of candidates)if(c.market==='Over/Under'&&c.side===parsed.totalSide)c.probability=Math.min(95,c.probability+3)}
+ const ordered=candidates.filter(c=>Number.isFinite(c.probability)).sort((a,b)=>b.probability-a.probability);
+ let primary=ordered[0]||null;
+ const second=ordered[1]||null;
+ const gap=primary&&second?primary.probability-second.probability:0;
+ const evidenceCount=signals.filter(x=>x.state==='ok').length;
+ const edgeEnough=primary?Math.abs(Number(primary.edge||0))>=.18:false;
+ // Automatic resolution: require real data plus a directional edge. If two markets are nearly tied,
+ // the system refuses to manufacture certainty.
+ const enough=quality!=='NO_APTA'&&primary&&edgeEnough&&(evidenceCount>=1||quality==='MEDIA'||quality==='BUENA')&&(gap>=4||Math.abs(Number(primary.edge||0))>=.55);
  if(!enough){
-   primary={market:marketLabel(parsed),pick:'SIN APUESTA',reason:'Las señales disponibles no superan el umbral mínimo de evidencia o son contradictorias. Se conserva la línea, pero no se fuerza una selección.'};
+   primary={market:marketLabel(parsed),pick:'SIN APUESTA',probability:Math.max(35,primary?.probability||40),edge:primary?.edge||0,reason:'Las opciones están demasiado parejas o la muestra real es insuficiente. El Scanner conserva la línea y no fuerza una apuesta.'};
  }
- const prior=learningProfile(parsed,match);
- let confidence=42;
- if(primary.pick!=='SIN APUESTA'){
-   confidence=52+Math.min(20,positive*5)-Math.min(12,negative*4);
-   const edge=parsed.line!=null?Math.abs(targetTotal-parsed.line):Math.abs(marginExp+(parsed.handicap||0));
-   confidence+=Math.min(15,edge*10);
-   if(h2h.n>=3)confidence+=3;
-   if(hf.n>=4&&af.n>=4)confidence+=5;
-   if(prior.bucketRate!=null&&prior.sample>=3)confidence=confidence*.72+prior.bucketRate*.28;
-   if(prior.similarRate!=null&&prior.similarSample>=3)confidence=confidence*.78+prior.similarRate*.22;
- } else confidence=40;
- confidence=Math.max(0,Math.min(95,Math.round(confidence)));
-
+ let confidence=primary.pick==='SIN APUESTA'?Math.min(55,Math.max(35,primary.probability||40)):Math.max(50,Math.min(95,primary.probability));
+ if(prior.bucketRate!=null&&prior.effectiveSample>=3)confidence=Math.round(confidence*.78+prior.calibratedRate*.22);
+ if(prior.similarRate!=null&&prior.similarSample>=3)confidence=Math.round(confidence*.82+prior.similarRate*.18);
+ confidence=Math.max(0,Math.min(95,confidence));
+ const positive=signals.filter(x=>x.state==='ok').length,negative=signals.filter(x=>x.state==='bad').length;
  const reasons=[
    `Estado: ${live?`EN VIVO · ${match.minute||'?'}' · ${match.homeScore}-${match.awayScore}`:'PREPARTIDO · fixture identificado'}`,
-   ...(liveExtra.summary?Object.entries(liveExtra.summary).map(([k,v])=>`${k}: ${v[0]??'—'} - ${v[1]??'—'}.`):[]),
-   `Proyección: ${totalExp} goles; ${live?`proyección final en vivo ${targetTotal}`:'base prepartido'} frente a la línea recibida ${parsed.line??'no indicada'}.`,
+   `Proyección de total: ${totalExp} goles${live?` · proyección final LIVE ${targetTotal}`:''}; línea recibida: ${parsed.line??'no indicada'}.`,
+   `Margen estimado: ${marginExp}; hándicap recibido: ${parsed.handicap!=null?`${parsed.handicap} (${parsed.handicapTeam||'home'})`:'no indicado'}.`,
    `Forma: ${match.home} ${hf.avgGF} GF / ${hf.avgGA} GC; ${match.away} ${af.avgGF} GF / ${af.avgGA} GC.`,
-   h2h.n?`H2H: ${h2h.n} partidos, promedio ${h2h.avgTotal} goles.`:'H2H: sin muestra suficiente.',
-   apiOU?`Señal externa: ${apiOU}.`:'Señal externa Over/Under: no disponible.',
-   prior.bucketRate!=null?`Patrón histórico de esta familia: ${prior.bucketRate}% sobre ${prior.sample} casos.`:'Patrón histórico: muestra insuficiente.',
-   prior.similarSample>=3?`Motor de aprendizaje: ${prior.similarSample} casos similares ponderados · referencia ${prior.similarRate}%.`:'Motor de aprendizaje: aún no hay casos similares suficientes.',
-   `Regla V40: ${primary.pick==='SIN APUESTA'?'no se fuerza selección cuando la evidencia es insuficiente.':'la selección debe superar el umbral de evidencia antes de congelarse.'}`
+   h2h.n?`H2H: ${h2h.n} partidos · promedio ${h2h.avgTotal} goles · margen ${h2h.homeMargin}.`:'H2H: sin muestra suficiente.',
+   prior.bucketRate!=null?`Patrón de la misma familia: ${prior.bucketRate}% sobre ${prior.sample} casos reales.`:'Patrón histórico: muestra insuficiente.',
+   prior.similarSample>=3?`Motor de aprendizaje: ${prior.similarSample} casos similares reales · referencia ${prior.similarRate}%.`:'Motor de aprendizaje: aún no hay casos similares suficientes.',
+   `Comparación automática: ${ordered.slice(0,3).map(c=>`${c.pick} ${c.probability}%`).join(' · ')||'sin mercados evaluables'}.`,
+   `Regla de seguridad: ${primary.pick==='SIN APUESTA'?'no se fuerza selección cuando la evidencia no separa claramente los mercados.':'se selecciona el mercado con mayor señal independiente y margen suficiente.'}`
  ];
- return {
-   homeForm:hf,awayForm:af,h2h,totalExpected:totalExp,marginExpected:marginExp,
-   liveProjection:lp,candidates,primary,confidence,
-   checks:{line:parsed.line,handicap:parsed.handicap},
-   reasons,signals,dataQuality:quality,
-   learningPrior:prior,
-   decisionMode:live?'LIVE':'PREMATCH',
-   signalScore:{positive,negative,total:signals.length},
-   noBet:primary.pick==='SIN APUESTA', liveStats:liveExtra.summary
- };
+ return {homeForm:hf,awayForm:af,h2h,totalExpected:totalExp,marginExpected:marginExp,liveProjection:lp,candidates,primary,confidence,checks:{line:parsed.line,handicap:parsed.handicap},reasons,signals,dataQuality:quality,learningPrior:prior,decisionMode:live?'LIVE':'PREMATCH',signalScore:{positive,negative,total:signals.length},noBet:primary.pick==='SIN APUESTA',liveStats:liveExtra.summary};
 }
 
 function persistScannerData(){store.set('lsp_scans',state.scans);store.set('lsp_preds',state.preds);try{localStorage.setItem('lsp_scans',JSON.stringify(state.scans));localStorage.setItem('lsp_preds',JSON.stringify(state.preds))}catch(e){}}
@@ -1269,7 +1250,8 @@ function renderScanner(){
   const a=s.analysis||{}, parsed=s.parsed||{}, pick=String(a.primary?.pick||s.snapshot?.prediction||'SIN SEÑAL');
   const frozen=!!s.frozen; const settled=['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement); const live=s.match?.status==='LIVE';
   const quality=a.dataQuality||'NO_APTA'; const qLabel=quality==='BUENA'?'DATOS COMPLETOS':quality==='MEDIA'?'DATOS SUFICIENTES':quality==='LIMITADA'?'DATOS LIMITADOS':'DATOS INSUFICIENTES';
-  const optionData=[['HÁNDICAP',parsed.handicap!=null?scanOptionSignal(a,parsed,'HÁNDICAP'):'—'],['OVER',parsed.line!=null?scanOptionSignal(a,parsed,'OVER'):'—'],['UNDER',parsed.line!=null?scanOptionSignal(a,parsed,'UNDER'):'—']];
+  const candidateFor=(market,side)=>{const c=(a.candidates||[]).find(x=>x.market===market&&(!side||x.side===side));return c?.probability??null};
+  const optionData=[['HÁNDICAP',parsed.handicap!=null?candidateFor('Hándicap'):'—'],['OVER',parsed.line!=null?candidateFor('Over/Under','OVER'):'—'],['UNDER',parsed.line!=null?candidateFor('Over/Under','UNDER'):'—']];
   const liveStats=a.liveStats; const selected=pick.toUpperCase();
   return `<div class="card scanner-v44-result ${a.noBet?'scanner-no-bet':''}">
    <div class="scanner-v44-status"><span class="sport-chip">${esc(API_CFG[s.match?.sport]?.label||s.match?.sport||'Scanner')} · ${esc(s.provider||'REAL')}</span><span class="scanner-v44-state ${live?'live':s.match?.status==='FINISHED'?'final':''}">${esc(s.match?fixtureStateLabel(s.match):'SIN FIXTURE')}</span></div>
@@ -1348,8 +1330,8 @@ async function resolveOnline(p){
   const ht=pickTeam(hs,p.home),at=pickTeam(as,p.away);
   if(!ht?.id||!at?.id)throw new Error('EQUIPOS_NO_ENCONTRADOS');
 
-  // Four fixture-list calls are enough to cover upcoming and recently finished games.
-  // They are also cached by the Worker and reused for form/H2H, so no extra form calls.
+  // Use the four team lists for normal resolution. If the exact fixture is not in
+  // those windows (common for older finished games), make one precise H2H fallback.
   const fixtureList=async(id,kind)=>{
    const key='team:'+id+':'+kind, c=state.resolverCache[key];
    if(c&&Date.now()-c.at<60000)return c.rows;
@@ -1359,20 +1341,25 @@ async function resolveOnline(p){
   const [hNext,hLast,aNext,aLast]=await Promise.all([
    fixtureList(ht.id,'next'),fixtureList(ht.id,'last'),fixtureList(at.id,'next'),fixtureList(at.id,'last')
   ]);
-  const all=[...hNext,...hLast,...aNext,...aLast];
-  const uniq=all.filter((g,i,a)=>a.findIndex(x=>String(x.fixture?.id)===String(g.fixture?.id))===i);
-  const matches=uniq.filter(g=>{
+  let all=[...hNext,...hLast,...aNext,...aLast];
+  let uniq=all.filter((g,i,a)=>a.findIndex(x=>String(x.fixture?.id)===String(g.fixture?.id))===i);
+  let matches=uniq.filter(g=>{
    const gh=g.teams?.home?.id,ga=g.teams?.away?.id;
    return (String(gh)===String(ht.id)&&String(ga)===String(at.id))||(String(gh)===String(at.id)&&String(ga)===String(ht.id));
   });
+  if(!matches.length){
+   const hk='h2h:'+ht.id+'-'+at.id, hc=state.resolverCache[hk];
+   let hrows=hc&&Date.now()-hc.at<300000?hc.rows:null;
+   if(!hrows){const j=await q('/fixtures?h2h='+ht.id+'-'+at.id+'&last=20');hrows=j.response||[];state.resolverCache[hk]={at:Date.now(),rows:hrows};}
+   matches=hrows.filter(g=>g?.fixture?.id);
+  }
   if(!matches.length)throw new Error('PARTIDO_NO_ENCONTRADO');
   const now=Date.now()/1000;
-  const rank=st=>isLiveStatus(st)?0:1;
-  matches.sort((a,b)=>{
-   const ra=rank(String(a.fixture?.status?.short||'')),rb=rank(String(b.fixture?.status?.short||''));
-   return ra-rb||Math.abs((a.fixture?.timestamp||0)-now)-Math.abs((b.fixture?.timestamp||0)-now);
-  });
-  const g=matches[0],match=mapGame('football',g);
+  const liveMatches=matches.filter(g=>isLiveStatus(String(g.fixture?.status?.short||'')));
+  const future=matches.filter(g=>!isFinishedStatus(String(g.fixture?.status?.short||''))&&!['CANCELLED','POSTPONED'].includes(fixtureStatus(String(g.fixture?.status?.short||'')))&&(g.fixture?.timestamp||0)>=now-15*60);
+  const pool=liveMatches.length?liveMatches:future.length?future:matches;
+  pool.sort((a,b)=>Math.abs((a.fixture?.timestamp||0)-now)-Math.abs((b.fixture?.timestamp||0)-now));
+  const g=pool[0],match=mapGame('football',g);
   match.homeId=g.teams?.home?.id;match.awayId=g.teams?.away?.id;
 
   // Reuse the four fixture lists as the historical sample and derive H2H locally.
@@ -1428,7 +1415,7 @@ function apiRequest(path){return apiRequestSport('football',path)}async function
 async function refreshPending(){if(!WORKER_ENABLED&&!state.apiKey||Date.now()-state.lastPendingRefresh<60000)return;state.lastPendingRefresh=Date.now();const pending=state.scans.filter(s=>s.match?.id&&s.settlement==='PENDIENTE').slice(0,3);for(const s of pending){try{const online=await resolveOnline(s.parsed);if(!online)continue;s.match={...s.match,...online.match};s.research=online.research||s.research;s.analysis=s.match.sport==='football'?buildResearch(s.parsed,s.match,s.research):buildResearchGeneric(s.parsed,s.match,s.research);if(['CANCELLED','POSTPONED'].includes(s.match.status))applyVoid(s,fixtureStateLabel(s.match));else if(s.match.status==='FINISHED'){const x=settleSelected(s.parsed,s.match,s.analysis||{});if(x.settlement&&x.settlement!=='PENDIENTE')applySettlement(s,x)}else if(s.match.status==='LIVE')s.settlementDetail=`Seguimiento EN VIVO: ${s.match.homeScore}-${s.match.awayScore} · la decisión permanece sin reescribirse.`}catch(e){}}persistScannerData();renderScanner();renderPred();renderStats();if(state.selected)renderDetail()}
 function applySettlement(s,x){s.settlement=x.settlement==='WIN'?'GANADA':x.settlement==='LOSS'?'PERDIDA':x.settlement==='PUSH'?'PUSH':x.settlement.replace('HALF-','MEDIA-');s.settlementDetail=`Liquidación automática tras resultado final: ${x.type} · total ${x.total??'-'} · margen ${x.margin??'-'}`;const pp=state.preds.find(z=>z.scanId===s.id);if(pp)pp.settlement=s.settlement}
 async function refreshOneScan(index){const s=state.scans[index];if(!s)return;if(!WORKER_ENABLED&&!state.apiKey){toast('La fuente de datos no está disponible.');return}try{const online=await resolveOnline(s.parsed);if(!online){toast('No se encontró el partido en las APIs disponibles.');return}s.match={...s.match,...online.match};s.research=online.research||s.research;s.analysis=s.match.sport==='football'?buildResearch(s.parsed,s.match,s.research):buildResearchGeneric(s.parsed,s.match,s.research);if(['CANCELLED','POSTPONED'].includes(s.match.status))applyVoid(s,fixtureStateLabel(s.match));else if(s.match.status==='FINISHED'){const x=settleSelected(s.parsed,s.match,s.analysis);if(x.settlement&&x.settlement!=='PENDIENTE')applySettlement(s,x)}else{s.settlement='PENDIENTE';s.settlementDetail=`Estado actualizado: ${fixtureStateLabel(s.match)} · ${s.match.homeScore}-${s.match.awayScore}`;s.analysis=s.analysis||{}}persistScannerData();renderScanner();renderPred();renderStats();if(state.selected)renderDetail();toast('Estado real y análisis multideporte actualizados.')}catch(e){toast('Error al actualizar: '+normalizeApiError(e))}}
-function selfTests(){const out=[];const check=(name,fn)=>{try{const v=fn();out.push([name,!!v,typeof v==='string'?v:'OK'])}catch(e){out.push([name,false,e.message])}};check('Navegación',()=>$$('.screen').length>=8&&$$('.nav').length===5&&['home','live','final','pred','scanner','stats','settings','detail'].every(x=>$$('.screen[data-page=\"'+x+'\"]').length===1));check('Parser vs/v/🆚',()=>parseLine('Real Santander vs Orsomarso -0.5 (2-2.5)').home==='Real Santander');check('Línea asiática cuarto',()=>JSON.stringify(splitQuarter(2.25))===JSON.stringify([2,2.5]));check('Over push',()=>settleGoals(2,2,'over')==='PUSH');check('Under push',()=>settleGoals(2,2,'under')==='PUSH');check('Hándicap push',()=>settleHandicap(1,-1)==='PUSH');check('Hándicap -1.25',()=>settleHandicap(1,-1.25)==='HALF-LOSS');check('Snapshot congelado',()=>{const p=parseLine('A vs B (2.25)'),s=prediction(p);return !!s.confidence&&!!s.reason});check('Persistencia sesión',()=>{store.set('lsp_test',123);return store.get('lsp_test')===123});check('Demo matches',()=>DEMO.length>=6);check('Escape HTML',()=>esc('<x>')==='&lt;x&gt;');check('Liquidación Over 2.25 con 2 goles',()=>settleGoals(2,2.25,'over')==='HALF-LOSS');check('Liquidación Under 2.25 con 2 goles',()=>settleGoals(2,2.25,'under')==='HALF-WIN');check('Dos mercados separados',()=>{const q=parseLine('A vs p-0.5 B (2-2.5)'),r=parseAndSettleDemo(q,{homeScore:2,awayScore:1});return r.settlement==='MULTI'&&r.markets.total.result==='WIN'&&r.markets.handicap.result==='LOSS'});check('Fixture terminado',()=>fixtureStatus('FT')==='FINISHED');check('Fixture vivo',()=>fixtureStatus('2H')==='LIVE');check('Estado HT',()=>fixtureStateLabel({status:'LIVE',statusCode:'HT'})==='DESCANSO');check('Filtro 7 días',()=>['today','7d','30d','all'].every(x=>x));check('Parser identifica lado del hándicap',()=>parseLine('City vs Arsenal -1.0').handicapTeam==='home');check('Parser identifica hándicap visitante',()=>parseLine('City vs +0.5 Arsenal').handicapTeam==='away');check('Motor protege ante falta de evidencia',()=>{const p=parseLine('A vs B (2.25)'),m={status:'UPCOMING',homeId:1,awayId:2,home:'A',away:'B',homeScore:0,awayScore:0},a=buildResearch(p,m,{homeForm:[],awayForm:[],h2h:[]});return a.primary.pick==='SIN APUESTA'&&a.noBet===true});check('Estado devuelto',()=>{const x={};applyVoid({id:'x'},'APLAZADO');return true});check('Liquidación respeta selección',()=>{const p=parseLine('A vs B (2-2.5)'),m={status:'FINISHED',homeScore:1,awayScore:1},a={primary:{pick:'UNDER 2.25'}};return settleSelected(p,m,a).settlement==='HALF-WIN'});check('Hándicap visitante se liquida aparte',()=>{const p=parseLine('A vs +0.5 B'),m={status:'FINISHED',homeScore:1,awayScore:1},a={primary:{pick:'HÁNDICAP VISITANTE +0.5'}};return settleSelected(p,m,a).settlement==='WIN'});check('Mapa baloncesto',()=>mapGame('basketball',{id:7,status:{short:'Q2'},teams:{home:{name:'A'},away:{name:'B'}},scores:{home:{total:50},away:{total:45}}}).status==='LIVE');check('Aprendizaje excluye DEMO',()=>{const old=state.scans;state.scans=[{provider:'DEMO',match:{id:1},settlement:'GANADA',parsed:{raw:'A vs B (2)'},snapshot:{confidence:90}}];const ok=settledScans().length===0;state.scans=old;return ok});check('Aprendizaje ponderado',()=>{const old=state.scans;state.scans=[{provider:'API-Fútbol',match:{id:1,sport:'football',date:new Date().toISOString()},settlement:'GANADA',parsed:{raw:'A vs B (2)',line:2},snapshot:{confidence:70}}];const p=learningProfile({raw:'X vs Y (2)',line:2,sport:'football'});state.scans=old;return p.bucketRate===100&&p.effectiveSample>0});check('V44 motor de aprendizaje',()=>{const d=learningDashboard();return d&&typeof d.n==='number'});check('Congelación explícita',()=>{const old=state.scans;const temp={id:'freeze-test',snapshot:{},featureSnapshot:{}};state.scans=[temp];const now=new Date().toISOString();temp.snapshot.frozenAt=now;temp.featureSnapshot.frozenAt=now;temp.frozen=true;state.scans=old;return !!now});check('Señal de mercados',()=>{const p=parseLine('A vs B (2.25)'),a={confidence:72,dataQuality:'BUENA',learningPrior:{bucketRate:60},primary:{pick:'OVER 2.25'},totalExpected:2.8};return scanOptionSignal(a,p,'OVER')>50});check('Señales direccionales',()=>{const p=parseLine('A vs B (2.25)'),a={confidence:70,dataQuality:'BUENA',learningPrior:{similarRate:65},primary:{pick:'OVER 2.25'},totalExpected:2.9};return scanOptionSignal(a,p,'OVER')>scanOptionSignal(a,p,'UNDER')});check('Aprendizaje persistente',()=>{persistScannerData();return Array.isArray(JSON.parse(localStorage.getItem('lsp_scans')||'[]'))&&Array.isArray(JSON.parse(localStorage.getItem('lsp_preds')||'[]'))});const ok=out.every(x=>x[1]);$('#selfTest').innerHTML=`<div class="test-list">${out.map(x=>`<div class="test"><span>${esc(x[0])}</span><b class="${x[1]?'status-ok':'status-bad'}">${x[1]?'PASS':'FAIL'}</b></div>`).join('')}</div><div class="small" style="margin-top:8px">${ok?'Todos los tests locales PASS.':'Hay tests que requieren corrección.'}</div>`;return ok}
+function selfTests(){const out=[];const check=(name,fn)=>{try{const v=fn();out.push([name,!!v,typeof v==='string'?v:'OK'])}catch(e){out.push([name,false,e.message])}};check('Navegación',()=>$$('.screen').length>=8&&$$('.nav').length===5&&['home','live','final','pred','scanner','stats','settings','detail'].every(x=>$$('.screen[data-page=\"'+x+'\"]').length===1));check('Parser vs/v/🆚',()=>parseLine('Real Santander vs Orsomarso -0.5 (2-2.5)').home==='Real Santander');check('Línea asiática cuarto',()=>JSON.stringify(splitQuarter(2.25))===JSON.stringify([2,2.5]));check('Over push',()=>settleGoals(2,2,'over')==='PUSH');check('Under push',()=>settleGoals(2,2,'under')==='PUSH');check('Hándicap push',()=>settleHandicap(1,-1)==='PUSH');check('Hándicap -1.25',()=>settleHandicap(1,-1.25)==='HALF-LOSS');check('Snapshot congelado',()=>{const p=parseLine('A vs B (2.25)'),s=prediction(p);return !!s.confidence&&!!s.reason});check('Persistencia sesión',()=>{store.set('lsp_test',123);return store.get('lsp_test')===123});check('Demo matches',()=>DEMO.length>=6);check('Escape HTML',()=>esc('<x>')==='&lt;x&gt;');check('Liquidación Over 2.25 con 2 goles',()=>settleGoals(2,2.25,'over')==='HALF-LOSS');check('Liquidación Under 2.25 con 2 goles',()=>settleGoals(2,2.25,'under')==='HALF-WIN');check('Dos mercados separados',()=>{const q=parseLine('A vs p-0.5 B (2-2.5)'),r=parseAndSettleDemo(q,{homeScore:2,awayScore:1});return r.settlement==='MULTI'&&r.markets.total.result==='WIN'&&r.markets.handicap.result==='LOSS'});check('Fixture terminado',()=>fixtureStatus('FT')==='FINISHED');check('Fixture vivo',()=>fixtureStatus('2H')==='LIVE');check('Estado HT',()=>fixtureStateLabel({status:'LIVE',statusCode:'HT'})==='DESCANSO');check('Filtro 7 días',()=>['today','7d','30d','all'].every(x=>x));check('Parser identifica lado del hándicap',()=>parseLine('City vs Arsenal -1.0').handicapTeam==='away');check('Parser identifica hándicap visitante',()=>parseLine('City vs +0.5 Arsenal').handicapTeam==='away');check('Parser rango asiático',()=>parseLine('Nicaragua +1.5-2 vs Costa Rica (3)').handicap===1.75);check('Parser equipo unido al hándicap',()=>parseLine('Alemania vs Serbia+2 (3.5)').away==='Serbia'&&parseLine('Alemania vs Serbia+2 (3.5)').handicap===2);check('Parser línea 2-2.5',()=>parseLine('A vs B (2-2.5)').line===2.25);check('Motor protege ante falta de evidencia',()=>{const p=parseLine('A vs B (2.25)'),m={status:'UPCOMING',homeId:1,awayId:2,home:'A',away:'B',homeScore:0,awayScore:0},a=buildResearch(p,m,{homeForm:[],awayForm:[],h2h:[]});return a.primary.pick==='SIN APUESTA'&&a.noBet===true});check('Estado devuelto',()=>{const x={};applyVoid({id:'x'},'APLAZADO');return true});check('Liquidación respeta selección',()=>{const p=parseLine('A vs B (2-2.5)'),m={status:'FINISHED',homeScore:1,awayScore:1},a={primary:{pick:'UNDER 2.25'}};return settleSelected(p,m,a).settlement==='HALF-WIN'});check('Hándicap visitante se liquida aparte',()=>{const p=parseLine('A vs +0.5 B'),m={status:'FINISHED',homeScore:1,awayScore:1},a={primary:{pick:'HÁNDICAP VISITANTE +0.5'}};return settleSelected(p,m,a).settlement==='WIN'});check('Mapa baloncesto',()=>mapGame('basketball',{id:7,status:{short:'Q2'},teams:{home:{name:'A'},away:{name:'B'}},scores:{home:{total:50},away:{total:45}}}).status==='LIVE');check('Aprendizaje excluye DEMO',()=>{const old=state.scans;state.scans=[{provider:'DEMO',match:{id:1},settlement:'GANADA',parsed:{raw:'A vs B (2)'},snapshot:{confidence:90}}];const ok=settledScans().length===0;state.scans=old;return ok});check('Aprendizaje ponderado',()=>{const old=state.scans;state.scans=[{provider:'API-Fútbol',match:{id:1,sport:'football',date:new Date().toISOString()},settlement:'GANADA',parsed:{raw:'A vs B (2)',line:2},snapshot:{confidence:70}}];const p=learningProfile({raw:'X vs Y (2)',line:2,sport:'football'});state.scans=old;return p.bucketRate===100&&p.effectiveSample>0});check('V44 motor de aprendizaje',()=>{const d=learningDashboard();return d&&typeof d.n==='number'});check('Congelación explícita',()=>{const old=state.scans;const temp={id:'freeze-test',snapshot:{},featureSnapshot:{}};state.scans=[temp];const now=new Date().toISOString();temp.snapshot.frozenAt=now;temp.featureSnapshot.frozenAt=now;temp.frozen=true;state.scans=old;return !!now});check('Señal de mercados',()=>{const p=parseLine('A vs B (2.25)'),a={confidence:72,dataQuality:'BUENA',learningPrior:{bucketRate:60},primary:{pick:'OVER 2.25'},totalExpected:2.8};return scanOptionSignal(a,p,'OVER')>50});check('Señales direccionales',()=>{const p=parseLine('A vs B (2.25)'),a={confidence:70,dataQuality:'BUENA',learningPrior:{similarRate:65},primary:{pick:'OVER 2.25'},totalExpected:2.9};return scanOptionSignal(a,p,'OVER')>scanOptionSignal(a,p,'UNDER')});check('Aprendizaje persistente',()=>{persistScannerData();return Array.isArray(JSON.parse(localStorage.getItem('lsp_scans')||'[]'))&&Array.isArray(JSON.parse(localStorage.getItem('lsp_preds')||'[]'))});const ok=out.every(x=>x[1]);$('#selfTest').innerHTML=`<div class="test-list">${out.map(x=>`<div class="test"><span>${esc(x[0])}</span><b class="${x[1]?'status-ok':'status-bad'}">${x[1]?'PASS':'FAIL'}</b></div>`).join('')}</div><div class="small" style="margin-top:8px">${ok?'Todos los tests locales PASS.':'Hay tests que requieren corrección.'}</div>`;return ok}
 function exportData(){const blob=new Blob([JSON.stringify({version:VERSION,scans:state.scans,predictions:state.preds,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='line-scanner-pro-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 
 function renderPred(){const box=$('#predList');if(!box)return;const rows=state.preds.slice(0,12);if(!rows.length){box.innerHTML='<div class="empty">Aún no hay análisis reales guardados. Los datos de demo no se mezclan con el aprendizaje.</div>';return}box.innerHTML=rows.map((p,i)=>`<div class="card"><div class="match-head"><span class="sport-chip">☆ Favorito · ${esc(p.input||'Partido')}</span><span class="line-chip">${esc(p.confidence??0)}%</span></div><b>${esc(p.prediction||'Análisis')}</b><p class="small">${esc(p.reason||'Snapshot congelado')}</p><div class="result"><b class="${p.settlement==='GANADA'?'win':p.settlement==='PERDIDA'?'loss':''}">${esc(p.settlement||'PENDIENTE')}</b></div></div>`).join('')}
