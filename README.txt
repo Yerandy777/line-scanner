@@ -1,25 +1,19 @@
-LINE SCANNER PRO V45 · REAL DATA / LIVE / SCANNER
+LINE SCANNER PRO V45.1 — SCANNER PRO RESOLVER + DECISION + LEARNING
 
-IMPORTANTE
-1. Sube el contenido de este ZIP a la raiz de GitHub Pages.
-2. index.html debe quedar en la raiz.
-3. Cloudflare Worker: usa worker.js como codigo del Worker.
-4. En Cloudflare > Settings > Variables and Secrets crea el secreto:
-   API_FOOTBALL_KEY = TU_CLAVE_DE_API-FOOTBALL
-5. El navegador NO necesita la API key.
-6. Worker URL esperada por index.html:
-   https://flat-term-e886.soleryerandy7.workers.dev
+Esta versión conserva la interfaz y el resto de módulos de V45 y corrige el motor de Scanner Pro.
 
-CORRECCIONES V45
-- Futbol usa /fixtures, no /games.
-- Scanner busca equipos y el fixture real, incluyendo partidos finalizados.
-- Live usa /fixtures?live=all.
-- Estadisticas live usa /fixtures/statistics.
-- Forma/H2H usan /fixtures.
-- Finalizados consulta fechas reales.
-- La API key queda en Cloudflare, no en el HTML.
-- Cache del Worker reduce solicitudes repetidas.
-- El Scanner conserva la linea original, identifica estado LIVE/FINAL y liquida automaticamente.
+Cambios principales:
+- Parser de entradas con hándicap y línea asiática (incluye 2-2.5, +1.5-2, p-0.5).
+- Resolución automática del fixture real para fútbol y deportes API-Sports con endpoint /games.
+- Busca partido en vivo, próximo o ya finalizado y usa H2H como respaldo para partidos anteriores.
+- Compara OVER, UNDER y HÁNDICAP cuando la línea corresponde.
+- Selecciona una decisión basada en señales y datos disponibles; si no hay evidencia suficiente no inventa una selección.
+- La decisión queda congelada automáticamente al crear el análisis.
+- El marcador LIVE puede actualizarse sin reescribir la decisión congelada.
+- Al finalizar, liquida automáticamente la selección congelada y alimenta el motor de aprendizaje.
+- El aprendizaje usa solo resultados reales liquidados y patrones similares.
+- Para deportes distintos de fútbol, usa /teams, /games y /games/statistics cuando el proveedor los expone.
+- No requiere resultado manual.
 
-LIMITACION ACTUAL
-Esta conexion V45 usa API-Football para futbol. Los demas deportes del HTML no quedan convertidos automaticamente a API-Football porque son APIs distintas.
+IMPORTANTE:
+La disponibilidad de datos depende de la API y de la cuota/clave configurada. Si el proveedor no devuelve el fixture o la estadística, Scanner Pro lo indica en lugar de fabricar datos.
