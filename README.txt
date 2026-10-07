@@ -1,15 +1,22 @@
-LINE SCANNER PRO V45.2 — SCANNER PRO REAL FIX
+LINE SCANNER PRO V45.5 — SCANNER PRO QUOTA-SAFE VALUE ENGINE
 
-Correcciones principales:
-- Scanner Pro ya no limita el resolvedor a fútbol.
-- Baloncesto, béisbol, hockey, rugby y otros endpoints API-Sports compatibles se resuelven buscando los juegos reales de los últimos 4 días.
-- Si existe una API key en Configuración, se usa directamente para todos los deportes.
-- Si no hay key, fútbol intenta usar el Worker configurado; otros deportes muestran error explícito en vez de fingir que procesaron el partido.
-- El análisis no borra la entrada del usuario.
-- Un fallo de API queda visible dentro del resultado con el motivo.
-- Una decisión real con evidencia queda congelada automáticamente; el seguimiento LIVE/final continúa sin reescribirla.
-- Liquidación automática al terminar.
-- Aprendizaje solo con decisiones reales liquidadas.
+Esta revisión corrige dos problemas concretos de V45.4 que podían dejar Scanner Pro en API ERROR, datos insuficientes y null%.
 
-IMPORTANTE:
-La aplicación no puede obtener datos reales de un proveedor si no hay una fuente de datos válida. La versión anterior ocultaba este fallo y parecía que Scanner Pro simplemente no hacía nada. Esta versión deja el error explícito y usa la API key configurada cuando existe.
+CORRECCIONES PRINCIPALES
+- El resolver de fútbol ya no dispara 6 llamadas de búsqueda/formulario en paralelo. Primero consulta una sola ventana de fixtures (ayer → próximos 7 días) y busca el partido dentro de esa respuesta.
+- Cuando encuentra el fixture, hace una única consulta de detalle por ID para reutilizar marcador, estado, eventos y estadísticas disponibles.
+- Las cuotas son opcionales: si /odds falla, el análisis base del partido no se invalida.
+- Se conserva un fallback de búsqueda por equipos solo cuando el fixture no aparece en la ventana inicial.
+- Las probabilidades inexistentes nunca se muestran como null%; se muestran como —.
+- Los errores de fuente se muestran explícitamente dentro de la tarjeta Scanner Pro.
+- Se incorporan los marcadores de descanso para liquidar correctamente mercados de Primer Tiempo.
+- Service Worker actualizado con cache nueva para evitar que el iPhone siga cargando una versión antigua de app.js.
+
+LÍMITE API-FOOTBALL
+El plan Free tiene límite de 10 solicitudes por minuto y 100 al día. El flujo anterior podía acercarse al límite en una sola búsqueda. Esta versión reduce drásticamente el número de llamadas del Scanner y usa cache.
+
+CLOUDFLARE WORKER
+El Worker incluido necesita el secret API_FOOTBALL_KEY configurado. /api/health no necesita la key y debe devolver ok:true.
+
+MODELO
+Scanner Pro compara la línea introducida, forma, H2H, marcador/estado, estadísticas disponibles y cuotas cuando existen. No inventa datos ni fuerza una apuesta si la evidencia no alcanza el umbral.
