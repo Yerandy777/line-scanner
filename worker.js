@@ -20,7 +20,7 @@ function targetPath(path){
 }
 export default {async fetch(request,env){
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors()});
- const u=new URL(request.url);if(u.pathname==='/api/health')return json({ok:true,service:'Scanner Pro API',status:'online',provider:'API-Football'});
+ const u=new URL(request.url);if(u.pathname==='/api/health')return json({ok:true,service:'Scanner Pro API',status:'online',provider:'API-Football',configured:!!env.API_FOOTBALL_KEY});
  if(!ALLOW.has(u.pathname))return json({ok:false,error:'NOT_FOUND'},404);
  const key=env.API_FOOTBALL_KEY;if(!key)return json({ok:false,errors:{token:'Worker secret API_FOOTBALL_KEY no configurado'}},500);
  const targetUrl=new URL(ORIGIN+targetPath(u.pathname));u.searchParams.forEach((v,k)=>{if(!['utm_source','utm_medium','utm_campaign'].includes(k))targetUrl.searchParams.set(k,v)});
