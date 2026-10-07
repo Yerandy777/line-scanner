@@ -1,0 +1,476 @@
+   const cleaned=(x.slice(0,hit.index)+x.slice(hit.index+hit[0].length)).replace(/^\s*p\s*/i,'').replace(/\s+/g,' ').trim();
+   return {team:cleaned,handicap:h,teamSide:team};
+ };
+ // First look for a handicap on either side. This fixes inputs such as
+ // `Nicaragua +1.5-2 vs Costa Rica` and `Alemania vs Serbia +2`.
+ const homeParsed=cleanHandicapSegment(home,'home');
+ const awayParsed=cleanHandicapSegment(rest,'away');
+ if(homeParsed.handicap!=null){handicap=homeParsed.handicap;handicapTeam='home';home=homeParsed.team;rest=awayParsed.team;}
+ else if(awayParsed.handicap!=null){handicap=awayParsed.handicap;handicapTeam='away';rest=awayParsed.team;home=homeParsed.team;}
+ else {home=homeParsed.team;rest=awayParsed.team;}
+ const away=String(rest||'').trim();
+ if(!home||!away)return {error:'No se pudieron identificar los dos equipos',raw:text};
+ return {raw:text,home,away,line,lineText,totalSide,handicap,handicapTeam};
+}
+function parseOddsText(raw){
+ const t=String(raw||''); const lines=t.split(/\n+/).map(x=>x.trim()).filter(Boolean); const markets={}; let current=null;
+ const canon=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+ const set=(market,label,odd)=>{if(!markets[market])markets[market]=[]; const n=Number(String(odd).replace(',','.')); if(Number.isFinite(n)&&n>1)markets[market].push({label,odd:n});};
+ for(const line of lines){
+  const c=canon(line).replace(/💰/g,'');
+  if(/^(ganador|resultado|1x2)/.test(c)){current='winner';continue}
+  if(/^(primer tiempo|1er tiempo|first half)/.test(c)){current='firstHalf';continue}
+  if(/^(ambos marcan|btts)/.test(c)){current='btts';continue}
+  if(/^(goles|total goles|over|under)/.test(c)){current='goals';continue}
+  if(/^(tarjetas|cards)/.test(c)){current='cards';continue}
+  if(/^(corner|corners)/.test(c)){current='corners';continue}
+  if(/^(primer equipo en marcar|first team to score)/.test(c)){current='firstScore';continue}
+  if(!current)continue;
+  const m=line.match(/^(.*?)\s+x\s*([0-9]+(?:[.,][0-9]+)?)/i); if(!m)continue;
+  set(current,m[1].trim(),m[2]);
+ }
+ return markets;
+}
+function splitScannerEntries(raw){
+ const lines=String(raw||'').split(/\n+/).map(x=>x.trim()).filter(Boolean), out=[]; let cur=null;
+ const looksMatch=x=>/\s+(?:vs\.?|v\.?|🆚|contra)\s+/i.test(x);
+ for(const line of lines){
+  if(looksMatch(line)){if(cur)out.push(cur);cur={matchLine:line,oddsLines:[]};}
+  else if(cur)cur.oddsLines.push(line);
+ }
+ if(cur)out.push(cur); return out.length?out:[{matchLine:String(raw||'').trim(),oddsLines:[]}];
+}
+function normalizeOddsGroup(arr){
+ const a=(arr||[]).filter(x=>Number.isFinite(x.odd)&&x.odd>1); if(!a.length)return [];
+ const inv=a.map(x=>1/x.odd),sum=inv.reduce((n,v)=>n+v,0); return a.map((x,i)=>({...x,implied:Math.round(inv[i]/sum*100)}));
+}
+function oddsMarketLabel(k){return ({winner:'GANADOR',firstHalf:'PRIMER TIEMPO',btts:'AMBOS MARCAN',goals:'GOLES',cards:'TARJETAS',corners:'CÓRNERS',firstScore:'PRIMER EQUIPO EN MARCAR'})[k]||k}
+function buildOddsAnalysis(odds,parsed,match,baseAnalysis){
+ const markets=odds||{}, all=[];
+ for(const [k,rows] of Object.entries(markets)){
+  const norm=normalizeOddsGroup(rows); if(!norm.length)continue;
+  for(const x of norm)all.push({market:oddsMarketLabel(k),side:x.label,odd:x.odd,marketProbability:x.implied,modelProbability:null,edge:null});
+ }
+ const totalExp=Number(baseAnalysis?.totalExpected), margin=Number(baseAnalysis?.marginExpected);
+ const home=match?.home||parsed.home, away=match?.away||parsed.away;
+ const formBoost=Number.isFinite(margin)?Math.max(-8,Math.min(8,margin*3)):0;
+ const goalBoost=Number.isFinite(totalExp)?Math.max(-8,Math.min(8,(totalExp-2.5)*5)):0;
+ for(const x of all){
+  let model=x.marketProbability;
+  if(x.market==='GANADOR'){
+   if(normalizeName(x.side).includes(normalizeName(home))||normalizeName(home).includes(normalizeName(x.side)))model=Math.min(95,x.marketProbability+formBoost);
+   else if(normalizeName(x.side).includes(normalizeName(away))||normalizeName(away).includes(normalizeName(x.side)))model=Math.max(5,x.marketProbability-formBoost);
+  } else if(x.market==='GOLES'){
+   if(/\+\s*2\.5|over|mas/i.test(x.side))model=Math.max(5,Math.min(95,x.marketProbability+goalBoost));
+   if(/-\s*2\.5|under|menos/i.test(x.side))model=Math.max(5,Math.min(95,x.marketProbability-goalBoost));
+  }
+  x.modelProbability=Math.round(model); x.edge=+(x.modelProbability-x.marketProbability).toFixed(1);
+ }
+ const ranked=all.filter(x=>Number.isFinite(x.modelProbability)).sort((a,b)=>b.modelProbability-a.modelProbability);
+ return {markets,all,ranked,primary:ranked[0]||null};
+}
+function splitQuarter(n){
+ const x=Number(n); if(!Number.isFinite(x))return [];
+ const q=Math.round(x*4)/4, frac=Math.round((q-Math.floor(q))*100)/100;
+ if(Math.abs(frac-.25)<.001)return [q-.25,q+.25];
+ if(Math.abs(frac-.75)<.001)return [q-.25,q+.25];
+ return [q];
+}
+function settleHalf(r1,r2){
+ const a=String(r1),b=String(r2);
+ if(a==='WIN'&&b==='WIN')return 'WIN';
+ if(a==='LOSS'&&b==='LOSS')return 'LOSS';
+ if((a==='WIN'&&b==='LOSS')||(a==='LOSS'&&b==='WIN'))return 'PUSH';
+ if((a==='WIN'&&b==='PUSH')||(a==='PUSH'&&b==='WIN'))return 'HALF-WIN';
+ if((a==='LOSS'&&b==='PUSH')||(a==='PUSH'&&b==='LOSS'))return 'HALF-LOSS';
+ if((a==='HALF-WIN'&&b==='LOSS')||(a==='LOSS'&&b==='HALF-WIN'))return 'PUSH';
+ if((a==='HALF-LOSS'&&b==='WIN')||(a==='WIN'&&b==='HALF-LOSS'))return 'PUSH';
+ if(a===b)return a;
+ return 'PUSH';
+}
+function settleWhole(value){return value>0?'WIN':value<0?'LOSS':'PUSH'}
+function settleGoals(total,line,side){
+ const n=Number(total),q=Number(line); if(!Number.isFinite(n)||!Number.isFinite(q))return 'PUSH';
+ const parts=splitQuarter(q); const evalOne=x=>side==='under'?settleWhole(x-n):settleWhole(n-x);
+ if(parts.length===1)return evalOne(parts[0]);
+ return settleHalf(evalOne(parts[0]),evalOne(parts[1]));
+}
+function settleHandicap(margin,handicap){
+ const m=Number(margin),h=Number(handicap); if(!Number.isFinite(m)||!Number.isFinite(h))return 'PUSH';
+ const parts=splitQuarter(h), evalOne=x=>settleWhole(m+x);
+ if(parts.length===1)return evalOne(parts[0]);
+ return settleHalf(evalOne(parts[0]),evalOne(parts[1]));
+}
+function parseAndSettleDemo(parsed,score){
+ const total=(Number(score?.homeScore)||0)+(Number(score?.awayScore)||0),margin=(Number(score?.homeScore)||0)-(Number(score?.awayScore)||0),markets={};
+ if(parsed?.line!=null){const side=parsed.totalSide||'OVER';markets.total={result:settleGoals(total,parsed.line,side.toLowerCase()),side,line:parsed.line};}
+ if(parsed?.handicap!=null){const adj=(parsed.handicapTeam||'home')==='away'?-margin:margin;markets.handicap={result:settleHandicap(adj,parsed.handicap),team:parsed.handicapTeam||'home',line:parsed.handicap};}
+ const vals=Object.values(markets).map(x=>x.result).filter(Boolean);let settlement='PENDIENTE';
+ if(vals.length===1)settlement=vals[0];
+ else if(vals.length>1)settlement='MULTI';
+ return {settlement,markets,total,margin};
+}
+function isFinishedStatus(st){return ['FT','AET','PEN','FINISHED','COMPLETED','3'].includes(String(st||'').toUpperCase())}
+function isLiveStatus(st){return ['1H','2H','HT','ET','BT','P','LIVE','IN PLAY','INPLAY','Q1','Q2','Q3','Q4','OT'].includes(String(st||'').toUpperCase())}
+async function fetchScheduleSport(sport){const cfg=API_CFG[sport];if(!cfg?.upcoming)throw new Error(cfg?.kind==='unsupported'?'API NO DISPONIBLE':'SCHEDULE NO DISPONIBLE');const now=Date.now(),cached=state.scheduleCache[sport];if(cached&&now-cached.ts<120000)return cached.rows;const j=await apiRequestSport(sport,cfg.upcoming+todayISO());const rows=(j.response||[]).map(x=>mapGame(sport,x));state.scheduleCache[sport]={ts:now,rows};state.online[sport]={ok:true,results:j.results??rows.length};return rows}
+async function fetchFocusSport(sport){
+ const liveErrorList=[],scheduleErrorList=[];
+ let live=[];
+ try{live=await fetchLiveSport(sport,true)}catch(e){liveErrorList.push(e)}
+ if(live.length){
+   return {mode:'LIVE',rows:live.filter(x=>x.status==='LIVE').sort((a,b)=>(b.minute||0)-(a.minute||0)).slice(0,8),liveError:null,scheduleError:null};
+ }
+ let scheduled=[];
+ try{scheduled=await fetchScheduleSport(sport)}catch(e){scheduleErrorList.push(e)}
+ const now=Math.floor(Date.now()/1000);
+ const rows=scheduled
+   .filter(x=>x.status==='UPCOMING'||x.status==='LIVE')
+   .filter(x=>(x.timestamp||0)>=now-10*60)
+   .sort((a,b)=>(a.timestamp||0)-(b.timestamp||0))
+   .slice(0,8);
+ return {
+   mode:rows.length?'UPCOMING':'EMPTY',
+   rows,
+   liveError:liveErrorList[0]||null,
+   scheduleError:scheduleErrorList[0]||null
+ };
+}
+async function renderSportFocus(sport){state.liveFilter=sport;const label=sportLabel(sport);state.page='live';$$('.screen').forEach(x=>x.classList.toggle('active',x.dataset.page==='live'));$$('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page==='live'));const head=document.querySelector('#liveList');head.innerHTML=`<div class="focus-head"><div><div class="ey">${sportIcon(sport)} ${esc(label.toUpperCase())}</div><h2>Lo que se está jugando o lo próximo</h2><p>Primero se buscan eventos en vivo; si no hay, se muestran los próximos del día.</p></div><button class="ghost" id="focusAllBtn">TODOS</button></div><div class="empty">Consultando ${esc(label)}…</div>`;if(!state.apiKey){const live=DEMO.filter(m=>m.sport===sport&&m.status==='LIVE');const rows=live.length?live:DEMO.filter(m=>m.sport===sport);head.innerHTML=`<div class="focus-head"><div><div class="ey">${sportIcon(sport)} ${esc(label.toUpperCase())}</div><h2>${live.length?'EN VIVO':'MÁS DESTACADO'}</h2></div><button class="ghost" id="focusAllBtn">TODOS</button></div>`+(rows.length?rows.map(m=>matchCard(m)).join(''):'<div class="empty">Modo DEMO: no hay datos para este deporte.</div>');$('#focusAllBtn')?.addEventListener('click',()=>{state.liveFilter='all';renderLive()});return}const f=await fetchFocusSport(sport);const err=f.scheduleError||f.liveError;const title=f.mode==='LIVE'?'EN VIVO':f.mode==='UPCOMING'?'PRÓXIMOS HOY':'SIN EVENTOS';const note=f.mode==='LIVE'?'Partidos que se están jugando ahora.':f.mode==='UPCOMING'?'No hay partido en vivo; aquí están los siguientes del día.':`No se encontraron eventos. ${err?normalizeApiError(err):''}`;head.innerHTML=`<div class="focus-head"><div><div class="ey">${sportIcon(sport)} ${esc(label.toUpperCase())}</div><h2>${title}</h2><p>${esc(note)}</p></div><button class="ghost" id="focusAllBtn">TODOS</button></div>`+(f.rows.length?f.rows.map(m=>matchCard(m)).join(''):'<div class="empty">No hay partidos disponibles para este deporte ahora mismo.</div>');$('#focusAllBtn')?.addEventListener('click',()=>{state.liveFilter='all';renderLive()})}
+async function renderHome(){
+ const box=$('#featured');
+ if(!WORKER_ENABLED&&!state.apiKey){
+   $('#apiPill').textContent='DEMO';
+   box.innerHTML='<div class="home-demo-warning">MODO DEMO · Conecta una API key para mostrar exclusivamente partidos reales.</div>'+DEMO.map(m=>matchCard(m)).join('');
+   return;
+ }
+ $('#apiPill').textContent='ONLINE';
+ box.innerHTML='<div class="home-loading"><span class="loading-ring"></span><div><b>Buscando partidos reales…</b><small>Comprobando eventos en vivo y próximos en las APIs conectadas.</small></div></div>';
+ const keys=Object.keys(API_CFG).filter(k=>API_CFG[k]?.base&&(API_CFG[k]?.live||API_CFG[k]?.upcoming));
+ const results=await Promise.all(keys.map(async key=>{
+   try{
+     const f=await fetchFocusSport(key);
+     return {key,...f};
+   }catch(e){
+     state.online[key]={ok:false,error:normalizeApiError(e)};
+     return {key,mode:'EMPTY',rows:[],error:e};
+   }
+ }));
+ const all=results.flatMap(r=>(r.rows||[]).map(m=>({...m,homeSource:r.key})));
+ const uniq=all.filter((m,i,a)=>a.findIndex(x=>String(x.id)===String(m.id)&&x.sport===m.sport)===i);
+ const live=uniq.filter(m=>m.status==='LIVE').sort((a,b)=>(b.minute||0)-(a.minute||0));
+ const upcoming=uniq.filter(m=>m.status==='UPCOMING'&&m.timestamp>Date.now()/1000).sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+ const selected=[...live,...upcoming].slice(0,12);
+ const updated=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+ const available=selected.length;
+ const failures=results.filter(r=>r.error||r.scheduleError&&!(r.rows||[]).length).length;
+ box.innerHTML=`
+   <div class="home-real-head">
+    <div><div class="ey">● DATOS REALES</div><h2>${live.length?'EN VIVO AHORA':'PRÓXIMOS EVENTOS'}</h2>
+    <p>${live.length?`${live.length} partido${live.length===1?'':'s'} en juego. Los siguientes aparecen debajo.`:'No hay eventos en vivo detectados. Mostrando los próximos eventos disponibles.'}</p></div>
+    <button class="ghost refresh-real" id="refreshHomeBtn">↻ ACTUALIZAR</button>
+   </div>
+   <div class="home-real-meta"><span>API ONLINE</span><span>${available} eventos</span><span>Actualizado ${updated}</span>${failures?`<span>${failures} fuente${failures===1?'':'s'} sin respuesta</span>`:''}</div>
+   ${available?selected.map(m=>matchCard(m)).join(''):'<div class="empty">La API no devolvió eventos reales actuales o próximos. No se muestran partidos inventados.</div>'}`;
+ $('#refreshHomeBtn')?.addEventListener('click',()=>renderHome());
+}
+async function renderLive(){const sport=state.liveFilter==='all'?null:state.liveFilter;const tabs=SPORTS.map(x=>`<button class="ghost ${state.liveFilter===x[0]?'active-filter':''}" data-live-filter="${x[0]}">${x[1]} ${x[2]}</button>`).join('');$('#liveList').innerHTML=`<div class="live-switch"><div class="filter-row"><button class="ghost ${!sport?'active-filter':''}" data-live-filter="all">Todos</button>${tabs}</div></div><div class="empty">Consultando…</div>`;if(!WORKER_ENABLED&&!state.apiKey){let a=DEMO.filter(m=>m.status==='LIVE');if(sport)a=a.filter(m=>m.sport===sport);$('#liveList').innerHTML=`<div class="live-switch"><div class="filter-row"><button class="ghost ${!sport?'active-filter':''}" data-live-filter="all">Todos</button>${tabs}</div></div>`+(a.length?a.map(m=>matchCard(m)).join(''):`<div class="empty">Modo DEMO: no hay ${sport?sportLabel(sport).toLowerCase():'partidos'} en vivo.</div>`);return}const keys=sport?[sport]:Object.keys(API_CFG).filter(k=>API_CFG[k]?.live);const all=[];for(const k of keys){try{all.push(...await fetchLiveSport(k,true))}catch(e){state.online[k]={ok:false,error:normalizeApiError(e)}}}const a=all.filter((m,i,x)=>x.findIndex(y=>y.id===m.id&&y.sport===m.sport)===i);$('#liveList').innerHTML=`<div class="live-switch"><div class="filter-row"><button class="ghost ${!sport?'active-filter':''}" data-live-filter="all">Todos</button>${tabs}</div><span>${a.length} eventos en vivo</span></div>`+(a.length?a.map(m=>matchCard(m)).join(''):`<div class="empty">No hay ${sport?sportLabel(sport).toLowerCase():'partidos'} en vivo ahora. Toca un deporte en Inicio para ver también los próximos.</div>`)}
+function normalizeApiError(e){const m=String(e?.message||e);if(m.includes('429')||m.includes('QUOTA'))return 'CUOTA AGOTADA';if(m.includes('401')||m.includes('403')||m.includes('AUTH_REJECTED')||m.includes('FORBIDDEN'))return 'KEY/ACCESO';if(m.includes('NETWORK'))return 'BLOQUEO DE RED/CORS';if(m.includes('TIEMPO'))return 'TIEMPO AGOTADO';return m}
+function apiKeyValue(){const el=document.getElementById('apiKey');const input=el?String(el.value||'').replace(/[\r\n\t]/g,'').trim():'';return input&&!/^•+$/.test(input)?input:String(state.apiKey||'').replace(/[\r\n\t]/g,'').trim()}
+const WORKER_BASE='https://flat-term-e886.soleryerandy7.workers.dev';
+async function apiRequestSport(sport,path,timeout=12000){
+ const cfg=API_CFG[sport];if(!cfg||!cfg.base)throw new Error('API NO DISPONIBLE PARA '+sport);
+ const key=apiKeyValue();
+ const direct=cfg.base+String(path||'/');
+ const useWorker=sport==='football'&&!key&&WORKER_ENABLED;
+ const u=new URL(useWorker?WORKER_BASE+'/api'+String(path||'/'):direct);
+ const c=new AbortController(),timer=setTimeout(()=>c.abort(),timeout);let r;
+ try{
+   const headers={'Accept':'application/json'};
+   if(key)headers['x-apisports-key']=key;
+   r=await fetch(u.toString(),{method:'GET',cache:'no-store',headers,signal:c.signal});
+ }catch(e){if(e?.name==='AbortError')throw new Error('TIEMPO AGOTADO');throw new Error('NETWORK: no se pudo conectar con la fuente de datos. '+(useWorker?'Worker':'API directa'));}
+ finally{clearTimeout(timer)}
+ const raw=await r.text();let j={};try{j=JSON.parse(raw)}catch{}
+ const errs=j?.errors&&typeof j.errors==='object'?Object.values(j.errors).flat().map(String):[],msg=errs.join(' · ')||j?.message||j?.error||'';
+ if(r.status===401)throw new Error('AUTH_REJECTED: clave no autorizada.');if(r.status===403)throw new Error('FORBIDDEN: acceso denegado.');if(r.status===429)throw new Error('QUOTA: límite de solicitudes alcanzado.');if(!r.ok)throw new Error('HTTP_'+r.status+(msg?' · '+msg:''));if(errs.length)throw new Error('API_ERROR: '+errs.join(' · '));return j||{}
+}
+
+function mapGame(sport,g){if(sport==='football'){const st=String(g.fixture?.status?.short||'NS').toUpperCase();return {id:g.fixture?.id,sport,league:g.league?.name||'',leagueId:g.league?.id,home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||'',awayLogo:g.teams?.away?.logo||'',homeScore:g.goals?.home??0,awayScore:g.goals?.away??0,status:isFinishedStatus(st)?'FINISHED':isLiveStatus(st)?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.fixture?.status?.long||'',minute:g.fixture?.status?.elapsed||0,date:g.fixture?.date||'',timestamp:g.fixture?.timestamp||0,odds:[]}}const st=String(g.status?.short??g.status?.long??'').toUpperCase();const finished=isFinishedStatus(st);const live=isLiveStatus(st)||(!finished&&!['NS','NOT STARTED','CANC','CANCELLED','POSTPONED','4','5','6'].includes(st)&&st!=='');return {id:g.id,sport,league:g.league?.name||g.league?.league||g.league||'',home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeLogo:g.teams?.home?.logo||g.teams?.home?.image||'',awayLogo:g.teams?.away?.logo||g.teams?.away?.image||'',homeScore:g.scores?.home?.total??g.scores?.home??g.scores?.home?.points??0,awayScore:g.scores?.away?.total??g.scores?.away??g.scores?.away?.points??0,status:finished?'FINISHED':live?'LIVE':fixtureStatus(st),statusCode:st,statusLong:g.status?.long||'',minute:g.status?.timer||g.status?.elapsed||st,date:g.date||g.datetime||'',timestamp:g.timestamp||g.date?.timestamp||0,odds:[]}}
+async function fetchLiveSport(sport,cache=true){const cfg=API_CFG[sport];if(!cfg?.live)throw new Error(cfg?.kind==='unsupported'?'API NO DISPONIBLE':'LIVE NO DISPONIBLE');const now=Date.now(),c=state.liveCache[sport];if(cache&&c&&now-c.ts<45000)return c.rows;const j=await apiRequestSport(sport,cfg.live);const rows=(j.response||[]).map(x=>mapGame(sport,x)).filter(x=>x.status==='LIVE');state.liveCache[sport]={ts:now,rows};state.online[sport]={ok:true,results:j.results??rows.length};return rows}
+async function testAllApis(){if(!state.apiKey){renderApiMatrix();return}for(const sport of Object.keys(API_CFG)){const cfg=API_CFG[sport];if(!cfg?.base){state.online[sport]={ok:false,error:'NO SOPORTADO POR API-SPORTS'};continue}try{if(cfg.kind==='football')await apiRequestSport(sport,'/status');else if(cfg.kind==='games')await apiRequestSport(sport,cfg.live);else state.online[sport]={ok:false,error:'SIN LIVE ENDPOINT'};if(cfg.kind==='football'||cfg.kind==='games')state.online[sport]={ok:true,error:''}}catch(e){state.online[sport]={ok:false,error:normalizeApiError(e)}}}renderApiMatrix()}
+function renderApiMatrix(){const el=$('#apiMatrix');if(!el)return;el.innerHTML=SPORTS.map(x=>{const k=x[0],cfg=API_CFG[k],o=state.online[k];let label='SIN PROBAR',cls='status-warn';if(!WORKER_ENABLED&&!state.apiKey)label='SIN CLAVE';else if(!cfg?.base)label='NO DISPONIBLE';else if(o?.ok){label='ONLINE';cls='status-ok'}else if(o?.error){label=o.error;cls='status-bad'}return `<div class="test"><span>${x[1]} ${x[2]}</span><b class="${cls}">${esc(label)}</b></div>`}).join('')}
+function daysAgoISO(n){
+ const d=new Date(Date.now()-n*86400000);
+ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`;
+}
+async function fetchFinishedFootballRange(range){
+ if(!WORKER_ENABLED&&!state.apiKey)return [];
+ let from,to;
+ if(range==='today'){from=to=todayISO();}
+ else if(range==='7d'){from=daysAgoISO(7);to=todayISO();}
+ else if(range==='30d'){from=daysAgoISO(30);to=todayISO();}
+ else {from=daysAgoISO(30);to=todayISO();}
+ try{
+  const path=from===to?'/fixtures?date='+from:'/fixtures?from='+from+'&to='+to;
+  const j=await apiRequestSport('football',path);
+  const rows=(j.response||[]).map(x=>mapGame('football',x)).filter(x=>x.status==='FINISHED');
+  return rows.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,100);
+ }catch(e){
+  state.online.football={ok:false,error:normalizeApiError(e)};
+  return [];
+ }
+}
+async function renderFinal(){
+ const box=$('#finalList'),pill=$('#finalApiPill');
+ $$('.final-range-row [data-final-range]').forEach(x=>x.classList.toggle('active',x.dataset.finalRange===state.finalFilter));
+ if(!WORKER_ENABLED&&!state.apiKey){
+  if(pill)pill.textContent='DEMO';
+  const a=DEMO.filter(m=>m.status==='FINISHED');
+  box.innerHTML=a.map(m=>matchCard(m)).join('')||'<div class="empty">Modo DEMO: conecta la API para ver resultados reales.</div>';
+  return;
+ }
+ if(pill)pill.textContent='ONLINE';
+ box.innerHTML='<div class="empty"><span class="loading-ring"></span> Consultando resultados reales…</div>';
+ const a=await fetchFinishedFootballRange(state.finalFilter);
+ box.innerHTML=(a.length?'<div class="small" style="margin:0 3px 8px;color:#00e7ff">● DATOS REALES · API-Football · actualización al abrir esta sección</div>':'')+(a.length?a.map(m=>matchCard(m)).join(''):'<div class="empty">No hay resultados finalizados en este periodo.</div>');
+}
+function marketLabel(p){const low=String(p?.raw||'').toLowerCase();const arr=[];if(p?.line!=null)arr.push(low.includes('under')||low.includes('menos')?'UNDER':'OVER');if(p?.handicap!=null)arr.push('HÁNDICAP');return arr.join(' + ')||'LÍNEA'}
+function isRealSettledScan(s){
+ const provider=String(s?.provider||'');
+ return !!s?.match?.id && /^API-/.test(provider) && ['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS'].includes(s?.settlement);
+}
+function settledScans(){return state.scans.filter(isRealSettledScan)}
+function outcomeScore(s){return s.settlement==='GANADA'||s.settlement==='MEDIA-WIN'?1:s.settlement==='PUSH'?.5:s.settlement==='MEDIA-LOSS'?.25:0}
+function outcomeWeight(s,halfLifeDays=45){const t=Date.parse(s?.match?.date||s?.createdAt||'');if(!Number.isFinite(t))return .35;const age=Math.max(0,(Date.now()-t)/86400000);return Math.pow(.5,age/halfLifeDays)}
+function weightedRate(rows){
+ let w=0,score=0;for(const s of rows){const wt=outcomeWeight(s);w+=wt;score+=wt*outcomeScore(s)}
+ return w?Math.round((score/w)*100):null;
+}
+function learningSimilarity(a,b,market){
+ const pa=a?.parsed||a||{}, pb=b?.parsed||b||{};
+ const sportA=a?.match?.sport||pa.sport, sportB=b?.match?.sport||pb.sport;
+ let score=0, weight=0;
+ const add=(ok,w)=>{weight+=w;if(ok)score+=w};
+ add(!sportA||!sportB||sportA===sportB,.22);
+ add(marketLabel(pa)===marketLabel(pb),.22);
+ if(pa.line!=null&&pb.line!=null){const d=Math.abs(Number(pa.line)-Number(pb.line));add(d<=.25,.16);if(d<=.5)score+=.05;}
+ else if(pa.line==null&&pb.line==null)add(true,.16);
+ if(pa.handicap!=null&&pb.handicap!=null){const d=Math.abs(Number(pa.handicap)-Number(pb.handicap));add((pa.handicapTeam||'home')===(pb.handicapTeam||'home')&&d<=.25,.16);if(d<=.5)score+=.04;}
+ else if(pa.handicap==null&&pb.handicap==null)add(true,.16);
+ add((a?.featureSnapshot?.status||a?.match?.status||'')===(b?.featureSnapshot?.status||b?.match?.status||''),.06);
+ add((a?.featureSnapshot?.dataQuality||a?.analysis?.dataQuality||'')===(b?.featureSnapshot?.dataQuality||b?.analysis?.dataQuality||''),.06);
+ const ea=Number(a?.featureSnapshot?.edge),eb=Number(b?.featureSnapshot?.edge);
+ if(Number.isFinite(ea)&&Number.isFinite(eb))add(Math.abs(ea-eb)<=.35,.07);else weight+=.07;
+ return weight?Math.min(1,score/weight):0;
+}
+function similarSettledCases(p,match,limit=12){
+ const market=marketLabel(p||{}),sport=match?.sport||p?.sport||null;
+ return settledScans().map(s=>({s,similarity:learningSimilarity({parsed:p,match},s,market)}))
+  .filter(x=>(!sport||!x.s.match?.sport||x.s.match.sport===sport)&&x.similarity>=.48)
+  .sort((a,b)=>b.similarity-a.similarity||outcomeWeight(b.s)-outcomeWeight(a.s))
+  .slice(0,limit);
+}
+function learningProfile(p,match=null){
+ const done=settledScans(), market=marketLabel(p), sport=p?.sport||match?.sport||null;
+ const rawLine=p?.line!=null?p.line:p?.handicap;
+ const lineBucket=rawLine!=null?Math.round(Number(rawLine)*4)/4:null;
+ const side=p?.handicapTeam||'home';
+ const same=(s,strictSport=true)=>{const sp=s.parsed||{};return (!strictSport||!sport||s.match?.sport===sport)&&marketLabel(sp)===market&&(lineBucket==null||Math.abs(Number(sp.line??sp.handicap??999)-lineBucket)<=.001)&&(p?.handicap==null||sp.handicap==null||(sp.handicapTeam||'home')===side)};
+ const relevant=done.filter(s=>same(s,true)), marketRows=done.filter(s=>marketLabel(s.parsed)===market), sportRows=sport?done.filter(s=>s.match?.sport===sport):[];
+ const rate=weightedRate, effective=a=>a.reduce((n,s)=>n+outcomeWeight(s),0);
+ const bucketRate=rate(relevant),marketRate=rate(marketRows),sportRate=rate(sportRows);
+ const shrink=(r,n)=>r==null?50:Math.round((r*n+50*6)/(n+6));
+ const eff=effective(relevant), marketEff=effective(marketRows), sportEff=effective(sportRows);
+ const similar=match?similarSettledCases(p,match):[];
+ const simWeight=similar.reduce((n,x)=>n+Math.max(.25,x.similarity)*outcomeWeight(x.s),0);
+ const simRate=simWeight?Math.round(similar.reduce((n,x)=>n+Math.max(.25,x.similarity)*outcomeWeight(x.s)*outcomeScore(x.s),0)/simWeight*100):null;
+ return {market,sport,lineBucket,side,sample:relevant.length,effectiveSample:+eff.toFixed(2),marketSample:marketRows.length,marketEffectiveSample:+marketEff.toFixed(2),sportSample:sportRows.length,sportEffectiveSample:+sportEff.toFixed(2),bucketRate,marketRate,sportRate,calibratedRate:shrink(bucketRate,eff),historicalConfidence:relevant.length?Math.round(relevant.reduce((n,s)=>n+Number(s.snapshot?.confidence||0),0)/relevant.length):0,patterns:done.filter(s=>s.featureSnapshot).length,similarSample:similar.length,similarRate:simRate,similarityTop:similar.slice(0,5).map(x=>({id:x.s.id,similarity:Math.round(x.similarity*100),settlement:x.s.settlement,fixture:x.s.match?.home+' vs '+x.s.match?.away}))};
+}
+function prediction(parsed){
+ const prior=learningProfile(parsed);let pick='SIN SEÑAL',confidence=38;
+ if(parsed.line!=null){const side=parsed.totalSide||'OVER';pick=`${side} ${parsed.line}`;confidence=50;}
+ if(parsed.handicap!=null){const side=(parsed.handicapTeam||'home')==='home'?'LOCAL':'VISITANTE';pick=`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`;confidence=Math.max(confidence,50);}
+ if(prior.bucketRate!=null&&prior.effectiveSample>=3)confidence=confidence*.65+prior.calibratedRate*.35;
+ const c=Math.max(0,Math.min(95,Math.round(confidence)));
+ const priorText=prior.bucketRate!=null?`Historial real ponderado: ${prior.bucketRate}% sobre ${prior.sample} casos (${prior.effectiveSample} efectivos).`:'Sin muestra histórica real suficiente.';
+ return {prediction:pick,confidence:c,reason:`Modelo adaptativo V42. ${priorText} El aprendizaje solo usa análisis reales ya liquidados y no modifica decisiones congeladas.`,learningPrior:prior,modelVersion:'V45-LEARNING-SIMILARITY'};
+}
+
+function summarizeForm(rows,teamId){
+ const a=(rows||[]).filter(f=>fixtureStatus(f.fixture?.status?.short)==='FINISHED');
+ let gf=0,ga=0,w=0,d=0,l=0;
+ for(const f of a){
+  const isHome=f.teams?.home?.id===teamId,h=f.goals?.home??0,aw=f.goals?.away??0;
+  gf+=isHome?h:aw;ga+=isHome?aw:h;
+  const r=isHome?h-aw:aw-h;if(r>0)w++;else if(r===0)d++;else l++;
+ }
+ return {n:a.length,gf,ga,avgGF:a.length?+(gf/a.length).toFixed(2):0,avgGA:a.length?+(ga/a.length).toFixed(2):0,w,d,l,winRate:a.length?Math.round(w/a.length*100):0};
+}
+function summarizeH2H(rows,homeId,awayId){
+ const a=(rows||[]).filter(f=>fixtureStatus(f.fixture?.status?.short)==='FINISHED').slice(0,5);
+ if(!a.length)return {n:0,avgTotal:0,homeMargin:0};
+ let total=0,margin=0;
+ for(const f of a){
+  const h=f.goals?.home??0,aw=f.goals?.away??0;total+=h+aw;
+  margin+=(f.teams?.home?.id===homeId?h-aw:aw-h);
+ }
+ return {n:a.length,avgTotal:+(total/a.length).toFixed(2),homeMargin:+(margin/a.length).toFixed(2)};
+}
+function liveProjection(parsed,match,totalExp){
+ const sport=match?.sport||'football',current=(Number(match?.homeScore)||0)+(Number(match?.awayScore)||0);
+ if(sport==='football'){
+  const elapsed=Math.max(1,Math.min(90,Number(match?.minute)||45)),remaining=Math.max(0,90-elapsed),pace=current/(elapsed/90),factor=current===0?1:Math.max(.55,Math.min(1.65,pace/Math.max(.35,totalExp))),rem=totalExp*(remaining/90)*(.72+.28*factor);
+  return {elapsed,current,remaining,pace:+pace.toFixed(2),paceFactor:+factor.toFixed(2),remainingExpected:+rem.toFixed(2),projectedFinal:+(current+rem).toFixed(2)};
+ }
+ return {elapsed:match?.minute??'',current,remaining:null,remainingExpected:null,projectedFinal:null,sport};
+}
+function genericRows(rows){return (rows||[]).map(g=>({id:g.id||g.game?.id||g.fixture?.id,homeId:g.teams?.home?.id,awayId:g.teams?.away?.id,home:g.teams?.home?.name||'Local',away:g.teams?.away?.name||'Visitante',homeScore:Number(g.scores?.home?.total??g.scores?.home?.runs??g.scores?.home??0)||0,awayScore:Number(g.scores?.away?.total??g.scores?.away?.runs??g.scores?.away??0)||0,status:fixtureStatus(g.status?.short||g.status?.long||'')}));}
+function genericForm(rows,teamId){const a=genericRows(rows).filter(x=>x.status==='FINISHED');let total=0,margin=0,n=0,w=0,d=0,l=0;for(const g of a){const home=String(g.homeId)===String(teamId),gf=home?g.homeScore:g.awayScore,ga=home?g.awayScore:g.homeScore;total+=gf+ga;margin+=gf-ga;n++;if(gf>ga)w++;else if(gf===ga)d++;else l++;}return {n,avgTotal:n?+(total/n).toFixed(2):0,avgMargin:n?+(margin/n).toFixed(2):0,w,d,l,winRate:n?Math.round(w/n*100):0};}
+function liveStatValue(rows,name,teamIndex){
+ const row=Array.isArray(rows)?rows[teamIndex]||{}:{}; const item=(row.statistics||[]).find(x=>String(x.type||'').toLowerCase()===String(name).toLowerCase()); return item?.value??null;
+}
+function liveStatsSummary(research){
+ const rows=research?.liveStats||[]; if(!rows.length)return null;
+ const keys=[['Tiros','Total Shots'],['A puerta','Shots on Goal'],['Corners','Corner Kicks'],['Posesión','Ball Possession'],['Tarjetas','Yellow Cards']];
+ const out={}; for(const [label,key] of keys)out[label]=[liveStatValue(rows,key,0),liveStatValue(rows,key,1)]; return out;
+}
+function liveStatsSignals(research){
+ const x=liveStatsSummary(research); if(!x)return {signals:[],summary:null}; const sig=[];
+ const shots=x['Tiros'],on=x['A puerta'],corn=x['Corners'],pos=x['Posesión'];
+ const num=v=>Number(String(v??'').replace('%',''))||0;
+ if(shots.some(v=>v!=null)){const diff=num(shots[0])-num(shots[1]);sig.push({name:'Volumen de tiros',value:`${shots[0]??'—'}-${shots[1]??'—'}`,state:Math.abs(diff)>=3?'ok':Math.abs(diff)>=1?'warn':'bad'})}
+ if(on.some(v=>v!=null)){const diff=num(on[0])-num(on[1]);sig.push({name:'Tiros a puerta',value:`${on[0]??'—'}-${on[1]??'—'}`,state:Math.abs(diff)>=2?'ok':Math.abs(diff)>=1?'warn':'bad'})}
+ if(corn.some(v=>v!=null)){const diff=num(corn[0])-num(corn[1]);sig.push({name:'Corners',value:`${corn[0]??'—'}-${corn[1]??'—'}`,state:Math.abs(diff)>=3?'ok':Math.abs(diff)>=1?'warn':'bad'})}
+ if(pos.some(v=>v!=null)){const diff=num(pos[0])-num(pos[1]);sig.push({name:'Posesión',value:`${pos[0]??'—'} / ${pos[1]??'—'}`,state:Math.abs(diff)>=12?'ok':Math.abs(diff)>=5?'warn':'bad'})}
+ return {signals:sig,summary:x};
+}
+function buildResearchGeneric(parsed,match,research){
+ const hf=genericForm(research?.homeForm,match?.homeId),af=genericForm(research?.awayForm,match?.awayId),h2h=genericRows(research?.h2h).filter(x=>x.status==='FINISHED').slice(0,5);
+ const h2hTotal=h2h.length?+(h2h.reduce((n,x)=>n+x.homeScore+x.awayScore,0)/h2h.length).toFixed(2):0,h2hMargin=h2h.length?+(h2h.reduce((n,x)=>n+x.homeScore-x.awayScore,0)/h2h.length).toFixed(2):0;
+ const totals=[hf.avgTotal,af.avgTotal,h2hTotal].filter(x=>x>0),totalExp=totals.length?+(totals.reduce((a,b)=>a+b,0)/totals.length).toFixed(2):0;
+ const margins=[hf.avgMargin,-af.avgMargin,h2hMargin],marginExp=+(margins.reduce((a,b)=>a+b,0)/margins.length).toFixed(2),live=match.status==='LIVE',current=(Number(match.homeScore)||0)+(Number(match.awayScore)||0);
+ const baseTotal=live&&current>0?Math.max(totalExp,current):totalExp,candidates=[],signals=[];
+ if(parsed.line!=null&&baseTotal){const gap=baseTotal-parsed.line,side=parsed.totalSide||(gap>=0?'OVER':'UNDER');signals.push({name:'Total vs línea',value:`${baseTotal} / ${parsed.line}`,state:Math.abs(gap)>=.5?'ok':Math.abs(gap)>=.18?'warn':'bad'});if(Math.abs(gap)>=.18)candidates.push({market:'Over/Under',pick:`${side} ${parsed.line}`,reason:`Base ${baseTotal} frente a línea ${parsed.line}; diferencia ${gap>=0?'+':''}${gap.toFixed(2)}.`});}
+ if(parsed.handicap!=null){const adj=marginExp+parsed.handicap,side=adj>=0?'LOCAL':'VISITANTE';signals.push({name:'Margen vs hándicap',value:`${marginExp.toFixed(2)} / ${parsed.handicap}`,state:Math.abs(adj)>=.5?'ok':Math.abs(adj)>=.18?'warn':'bad'});if(Math.abs(adj)>=.18)candidates.push({market:'Hándicap',pick:`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`,reason:`Margen estimado ${marginExp.toFixed(2)} frente al hándicap ${parsed.handicap}.`});}
+ const primary=candidates[0]||{market:marketLabel(parsed),pick:'SIN APUESTA',reason:'Datos insuficientes para superar el umbral mínimo; no se fuerza una selección.'},quality=(hf.n>=2||af.n>=2||h2h.length>=2)?'BUENA':'LIMITADA';let confidence=primary.pick==='SIN APUESTA'?35:55+Math.min(18,Math.abs(parsed.line!=null?baseTotal-parsed.line:marginExp+parsed.handicap)*8);const prior=learningProfile({...parsed,sport:match?.sport},match);if(prior.bucketRate!=null&&prior.effectiveSample>=3)confidence=confidence*.72+prior.bucketRate*.28;confidence=Math.max(0,Math.min(95,Math.round(confidence)));
+ const label=API_CFG[match.sport]?.label||match.sport;return {homeForm:hf,awayForm:af,h2h:{n:h2h.length,avgTotal:h2hTotal,homeMargin:h2hMargin},totalExpected:baseTotal,marginExpected:marginExp,liveProjection:live?liveProjection(parsed,match,baseTotal):null,candidates,primary,confidence,reasons:[`Deporte identificado: ${label}.`,`${live?'EN VIVO · marcador '+match.homeScore+'-'+match.awayScore:'PREPARTIDO'} · análisis con unidades propias del deporte.`,`Base histórica de totales: ${baseTotal||'sin muestra'}; margen estimado: ${marginExp.toFixed(2)}.`,h2h.length?`H2H comparable: ${h2h.length}; total medio ${h2hTotal}.`:'H2H: sin muestra suficiente.',prior.bucketRate!=null?`Patrón histórico: ${prior.bucketRate}% sobre ${prior.sample} casos.`:'Patrón histórico: muestra insuficiente.'],signals,dataQuality:quality,learningPrior:prior,decisionMode:live?'LIVE':'PREMATCH',signalScore:{positive:candidates.length,negative:0,total:signals.length},noBet:primary.pick==='SIN APUESTA'};
+}
+
+function buildResearch(parsed,match,research){
+ const hf=summarizeForm(research?.homeForm,match?.homeId);
+ const af=summarizeForm(research?.awayForm,match?.awayId);
+ const h2h=summarizeH2H(research?.h2h,match?.homeId,match?.awayId);
+ const homeExp=(hf.avgGF+af.avgGA)/2;
+ const awayExp=(af.avgGF+hf.avgGA)/2;
+ let teamTotal=+(homeExp+awayExp).toFixed(2);
+ let totalExp=teamTotal;
+ let marginExp=+(homeExp-awayExp).toFixed(2);
+ // H2H is context, not a replacement for current form. Blend it lightly when enough data exists.
+ if(h2h.n>=3){totalExp=+(teamTotal*.72+h2h.avgTotal*.28).toFixed(2);marginExp=+(marginExp*.72+h2h.homeMargin*.28).toFixed(2)}
+ const live=match?.status==='LIVE';
+ const lp=live?liveProjection(parsed,match,totalExp):null;
+ const targetTotal=live&&Number.isFinite(lp?.projectedFinal)?lp.projectedFinal:totalExp;
+ const signals=[];
+ const candidates=[];
+ const liveExtra=liveStatsSignals(research);
+ if(live)signals.push(...liveExtra.signals);
+ const prior=learningProfile(parsed,match);
+ const quality=(()=>{const n=hf.n+af.n+h2h.n;return n>=10?'BUENA':n>=5?'MEDIA':n>=1?'LIMITADA':'NO_APTA'})();
+ const qBonus=quality==='BUENA'?7:quality==='MEDIA'?4:quality==='LIMITADA'?1:-8;
+ const historyBonus=Number.isFinite(prior.similarRate)?Math.max(-5,Math.min(8,(prior.similarRate-50)*.12)):0;
+ const sigmoid=(x,scale)=>50+42*Math.tanh(x/Math.max(.01,scale));
+
+ // Build BOTH sides of the total market. This is important: the engine must compare OVER vs UNDER,
+ // not merely choose one side and then display two symmetric numbers.
+ if(parsed.line!=null){
+   const edge=+(targetTotal-parsed.line).toFixed(2);
+   const abs=Math.abs(edge);
+   const overProb=Math.round(Math.max(5,Math.min(95,sigmoid(edge,.38)+qBonus+historyBonus)));
+   const underProb=Math.round(Math.max(5,Math.min(95,sigmoid(-edge,.38)+qBonus+historyBonus)));
+   const totalState=abs>=.55?'ok':abs>=.20?'warn':'bad';
+   signals.push({name:'Total vs línea',value:`${targetTotal} vs ${parsed.line}`,state:totalState});
+   candidates.push({market:'Over/Under',pick:`OVER ${parsed.line}`,side:'OVER',probability:overProb,edge,reason:`Proyección ${targetTotal} frente a ${parsed.line}; diferencia ${edge>=0?'+':''}${edge}.`});
+   candidates.push({market:'Over/Under',pick:`UNDER ${parsed.line}`,side:'UNDER',probability:underProb,edge:-edge,reason:`Proyección ${targetTotal} frente a ${parsed.line}; diferencia para UNDER ${(-edge)>=0?'+':''}${(-edge).toFixed(2)}.`});
+ }
+
+ // Handicap: calculate the side that actually receives the entered handicap.
+ if(parsed.handicap!=null){
+   const team=parsed.handicapTeam||'home';
+   const adjusted=team==='home'?marginExp+parsed.handicap:-marginExp+parsed.handicap;
+   const side=adjusted>=0?'LOCAL':'VISITANTE';
+   const abs=Math.abs(adjusted);
+   const handicapProb=Math.round(Math.max(5,Math.min(95,sigmoid(adjusted,.45)+qBonus+historyBonus)));
+   const oppositeProb=Math.round(Math.max(5,Math.min(95,sigmoid(-adjusted,.45)+qBonus+historyBonus)));
+   signals.push({name:'Margen vs hándicap',value:`${marginExp} / ajuste ${adjusted.toFixed(2)}`,state:abs>=.55?'ok':abs>=.20?'warn':'bad'});
+   const label=`HÁNDICAP ${side} ${parsed.handicap>0?'+':''}${parsed.handicap}`;
+   candidates.push({market:'Hándicap',pick:label,side,probability:handicapProb,edge:adjusted,reason:`Margen esperado ${marginExp}; ajuste para ${team==='home'?'local':'visitante'} = ${adjusted.toFixed(2)}.`});
+ }
+
+ signals.push({name:'Forma reciente',value:`${hf.n}+${af.n} partidos`,state:(hf.n>=4&&af.n>=4)?'ok':(hf.n||af.n)?'warn':'bad'});
+ signals.push({name:'H2H',value:h2h.n?`${h2h.n} partidos · ${h2h.avgTotal} goles`:'SIN MUESTRA',state:h2h.n>=3?'ok':h2h.n?'warn':'bad'});
+
+ // Give a small bonus to the requested side when the user explicitly wrote OVER/UNDER,
+ // but never allow that preference to override a clearly stronger model signal.
+ if(parsed.totalSide){for(const c of candidates)if(c.market==='Over/Under'&&c.side===parsed.totalSide)c.probability=Math.min(95,c.probability+3)}
+ const ordered=candidates.filter(c=>Number.isFinite(c.probability)).sort((a,b)=>b.probability-a.probability);
+ let primary=ordered[0]||null;
+ const second=ordered[1]||null;
+ const gap=primary&&second?primary.probability-second.probability:0;
+ const evidenceCount=signals.filter(x=>x.state==='ok').length;
+ const edgeEnough=primary?Math.abs(Number(primary.edge||0))>=.18:false;
+ // Automatic resolution: require real data plus a directional edge. If two markets are nearly tied,
+ // the system refuses to manufacture certainty.
+ const enough=quality!=='NO_APTA'&&primary&&edgeEnough&&(evidenceCount>=1||quality==='MEDIA'||quality==='BUENA')&&(gap>=4||Math.abs(Number(primary.edge||0))>=.55);
+ if(!enough){
+   primary={market:marketLabel(parsed),pick:'SIN APUESTA',probability:Math.max(35,primary?.probability||40),edge:primary?.edge||0,reason:'Las opciones están demasiado parejas o la muestra real es insuficiente. El Scanner conserva la línea y no fuerza una apuesta.'};
+ }
+ let confidence=primary.pick==='SIN APUESTA'?Math.min(55,Math.max(35,primary.probability||40)):Math.max(50,Math.min(95,primary.probability));
+ if(prior.bucketRate!=null&&prior.effectiveSample>=3)confidence=Math.round(confidence*.78+prior.calibratedRate*.22);
+ if(prior.similarRate!=null&&prior.similarSample>=3)confidence=Math.round(confidence*.82+prior.similarRate*.18);
+ confidence=Math.max(0,Math.min(95,confidence));
+ const positive=signals.filter(x=>x.state==='ok').length,negative=signals.filter(x=>x.state==='bad').length;
+ const reasons=[
+   `Estado: ${live?`EN VIVO · ${match.minute||'?'}' · ${match.homeScore}-${match.awayScore}`:'PREPARTIDO · fixture identificado'}`,
+   `Proyección de total: ${totalExp} goles${live?` · proyección final LIVE ${targetTotal}`:''}; línea recibida: ${parsed.line??'no indicada'}.`,
+   `Margen estimado: ${marginExp}; hándicap recibido: ${parsed.handicap!=null?`${parsed.handicap} (${parsed.handicapTeam||'home'})`:'no indicado'}.`,
+   `Forma: ${match.home} ${hf.avgGF} GF / ${hf.avgGA} GC; ${match.away} ${af.avgGF} GF / ${af.avgGA} GC.`,
+   h2h.n?`H2H: ${h2h.n} partidos · promedio ${h2h.avgTotal} goles · margen ${h2h.homeMargin}.`:'H2H: sin muestra suficiente.',
+   prior.bucketRate!=null?`Patrón de la misma familia: ${prior.bucketRate}% sobre ${prior.sample} casos reales.`:'Patrón histórico: muestra insuficiente.',
+   prior.similarSample>=3?`Motor de aprendizaje: ${prior.similarSample} casos similares reales · referencia ${prior.similarRate}%.`:'Motor de aprendizaje: aún no hay casos similares suficientes.',
+   `Comparación automática: ${ordered.slice(0,3).map(c=>`${c.pick} ${c.probability}%`).join(' · ')||'sin mercados evaluables'}.`,
+   `Regla de seguridad: ${primary.pick==='SIN APUESTA'?'no se fuerza selección cuando la evidencia no separa claramente los mercados.':'se selecciona el mercado con mayor señal independiente y margen suficiente.'}`
+ ];
+ return {homeForm:hf,awayForm:af,h2h,totalExpected:totalExp,marginExpected:marginExp,liveProjection:lp,candidates,primary,confidence,checks:{line:parsed.line,handicap:parsed.handicap},reasons,signals,dataQuality:quality,learningPrior:prior,decisionMode:live?'LIVE':'PREMATCH',signalScore:{positive,negative,total:signals.length},noBet:primary.pick==='SIN APUESTA',liveStats:liveExtra.summary};
+}
+
+function persistScannerData(){store.set('lsp_scans',state.scans);store.set('lsp_preds',state.preds);try{localStorage.setItem('lsp_scans',JSON.stringify(state.scans));localStorage.setItem('lsp_preds',JSON.stringify(state.preds))}catch(e){}}
+function applyVoid(s,reason){s.settlement='DEVUELTA';s.settlementDetail=`Apuesta devuelta: ${reason||'evento cancelado o aplazado.'}`;const pp=state.preds.find(z=>z.scanId===s.id);if(pp)pp.settlement='DEVUELTA';persistScannerData()}
+function saveScan(scan){state.scans.unshift(scan);state.scans=state.scans.slice(0,100);persistScannerData()}
+function updateScannerMetrics(){
+ const scans=state.scans||[], pending=scans.filter(x=>!x.settlement||x.settlement==='PENDIENTE').length;
+ const wins=scans.filter(x=>x.settlement==='GANADA'||x.settlement==='MEDIA-WIN').length;
+ const settled=scans.filter(x=>['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS'].includes(x.settlement)).length;
+ const rate=settled?Math.round(wins/settled*100):null;
+ if($('#scanCount'))$('#scanCount').textContent=scans.length;
+ if($('#scanPending'))$('#scanPending').textContent=pending;
+ if($('#scanWins'))$('#scanWins').textContent=wins;
+ if($('#scanRate'))$('#scanRate').textContent=rate==null?'—':rate+'%';
+}
+function bindScannerExamples(){
+ document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-scan-example]');
+  if(b){const box=$('#scannerInput');if(box){box.value=b.dataset.scanExample;box.focus();}}
+ });
+}
+function scanMatchesRange(scan){
+ const t=Date.parse(scan.createdAt||'');
+ if(state.scanRange==='all'||!Number.isFinite(t))return true;
+ const age=Date.now()-t;
+ if(state.scanRange==='today')return new Date(t).toDateString()===new Date().toDateString();
+ if(state.scanRange==='7d')return age<=7*86400000;
+ if(state.scanRange==='30d')return age<=30*86400000;
+ return true;
+}
+function scanStatusMatch(s){const st=s.match?.status||'UNKNOWN';if(state.scanStatus==='all')return true;if(state.scanStatus==='LIVE')return st==='LIVE';if(state.scanStatus==='UPCOMING')return st==='UPCOMING';if(state.scanStatus==='PENDIENTE')return !s.settlement||s.settlement==='PENDIENTE';if(state.scanStatus==='SETTLED')return ['GANADA','PERDIDA','PUSH','MEDIA-WIN','MEDIA-LOSS','DEVUELTA'].includes(s.settlement);return true}
+
