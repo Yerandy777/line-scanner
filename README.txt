@@ -30,3 +30,11 @@ V45.6 — AUDITORÍA Y CORRECCIÓN PROFUNDA
 - El modelo de totales usa una distribución de Poisson y el hándicap usa distribución conjunta de goles; las cuotas son evidencia secundaria.
 - Si falta evidencia, se muestra la carencia de fuente/datos; no se fabrican porcentajes.
 - Se conserva la liquidación automática y el aprendizaje únicamente con resultados reales cerrados.
+
+
+V45.7 — FAILSAFE BACKEND
+- El Worker ya no se usa ciegamente: primero se verifica /api/health.
+- Si el Worker está caído y existe una API key local, Fútbol usa la API directa como respaldo.
+- Si no existe backend disponible, Scanner Pro lo declara explícitamente y no genera porcentajes ficticios.
+- Una decisión congelada no se reescribe durante las actualizaciones LIVE; solo se actualiza el contexto y la liquidación.
+- Service Worker version bumped to force refresh.
