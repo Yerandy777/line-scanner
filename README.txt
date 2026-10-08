@@ -1,40 +1,32 @@
-LINE SCANNER PRO V45.5 — SCANNER PRO QUOTA-SAFE VALUE ENGINE
+LINE SCANNER PRO V47.0 · MATCH INTELLIGENCE
 
-Esta revisión corrige dos problemas concretos de V45.4 que podían dejar Scanner Pro en API ERROR, datos insuficientes y null%.
+Objetivo
+- Reemplaza únicamente el apartado Scanner Pro por un motor orientado a: fixture real, estado real, análisis previo, decisión y aprendizaje de patrones.
+- Mantiene el resto de la aplicación y sus secciones.
 
-CORRECCIONES PRINCIPALES
-- El resolver de fútbol ya no dispara 6 llamadas de búsqueda/formulario en paralelo. Primero consulta una sola ventana de fixtures (ayer → próximos 7 días) y busca el partido dentro de esa respuesta.
-- Cuando encuentra el fixture, hace una única consulta de detalle por ID para reutilizar marcador, estado, eventos y estadísticas disponibles.
-- Las cuotas son opcionales: si /odds falla, el análisis base del partido no se invalida.
-- Se conserva un fallback de búsqueda por equipos solo cuando el fixture no aparece en la ventana inicial.
-- Las probabilidades inexistentes nunca se muestran como null%; se muestran como —.
-- Los errores de fuente se muestran explícitamente dentro de la tarjeta Scanner Pro.
-- Se incorporan los marcadores de descanso para liquidar correctamente mercados de Primer Tiempo.
-- Service Worker actualizado con cache nueva para evitar que el iPhone siga cargando una versión antigua de app.js.
+Cambios principales
+1. index.html usa app.js como motor canónico; se eliminó el motor JS inline duplicado que podía dejar al teléfono ejecutando una versión anterior.
+2. Scanner Pro 3.0 muestra estado, marcador/tiempo, línea, hándicap, decisión, confianza, evidencia, lectura LIVE y patrones históricos.
+3. Parser mantiene el lado del hándicap tal como fue introducido.
+4. Resolución de fútbol optimizada para consumir menos API:
+   - búsqueda de equipos (con caché 24 h)
+   - búsqueda estrecha de fixture
+   - detalle del fixture (incluye datos embebidos cuando están disponibles)
+   - últimas formas de ambos equipos con caché
+   - predictions como evidencia secundaria
+5. El Worker añade /api/predictions con caché largo.
+6. Ante 429 no se hace fallback inmediato a otra llamada que pueda empeorar la cuota.
+7. El aprendizaje solo usa análisis reales ya liquidados; DEMO no entra.
+8. Service Worker actualizado a V47 para evitar caché del motor antiguo.
 
-LÍMITE API-FOOTBALL
-El plan Free tiene límite de 10 solicitudes por minuto y 100 al día. El flujo anterior podía acercarse al límite en una sola búsqueda. Esta versión reduce drásticamente el número de llamadas del Scanner y usa cache.
+Pruebas realizadas
+- node --check app.js: PASS
+- node --check worker.js: PASS
+- integridad del ZIP: PASS
+- parser: 8 casos críticos PASS
+- liquidación Over/Under cuarto: PASS
+- liquidación hándicap: PASS
+- comprobaciones estáticas de integración index/app/worker/SW: PASS
 
-CLOUDFLARE WORKER
-El Worker incluido necesita el secret API_FOOTBALL_KEY configurado. /api/health no necesita la key y debe devolver ok:true.
-
-MODELO
-Scanner Pro compara la línea introducida, forma, H2H, marcador/estado, estadísticas disponibles y cuotas cuando existen. No inventa datos ni fuerza una apuesta si la evidencia no alcanza el umbral.
-
-
-V45.6 — AUDITORÍA Y CORRECCIÓN PROFUNDA
-- index.html y app.js quedan sincronizados; index.html es el archivo que ejecuta la aplicación.
-- Scanner Pro ya no permite que las cuotas 1X2/BTTS sustituyan la decisión solicitada HÁNDICAP/OVER/UNDER.
-- Se obtiene forma reciente real por equipo y H2H cuando el fixture se identifica; los resultados se cachean.
-- En LIVE se solicitan explícitamente estadísticas y eventos del fixture para tiros, tiros a puerta, corners, posesión, tarjetas y secuencia de goles cuando el proveedor los entrega.
-- El modelo de totales usa una distribución de Poisson y el hándicap usa distribución conjunta de goles; las cuotas son evidencia secundaria.
-- Si falta evidencia, se muestra la carencia de fuente/datos; no se fabrican porcentajes.
-- Se conserva la liquidación automática y el aprendizaje únicamente con resultados reales cerrados.
-
-
-V45.7 — FAILSAFE BACKEND
-- El Worker ya no se usa ciegamente: primero se verifica /api/health.
-- Si el Worker está caído y existe una API key local, Fútbol usa la API directa como respaldo.
-- Si no existe backend disponible, Scanner Pro lo declara explícitamente y no genera porcentajes ficticios.
-- Una decisión congelada no se reescribe durante las actualizaciones LIVE; solo se actualiza el contexto y la liquidación.
-- Service Worker version bumped to force refresh.
+Nota de API
+La API-Football limita las peticiones por minuto según el plan y devuelve 429 cuando se supera ese límite. El motor V47 reduce llamadas y usa caché, pero no puede aumentar la cuota de una cuenta externa.
