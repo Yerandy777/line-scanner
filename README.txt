@@ -1,4 +1,4 @@
-LINE SCANNER PRO V47.0 · MATCH INTELLIGENCE
+LINE SCANNER PRO V48.0 · MATCH INTELLIGENCE
 
 Objetivo
 - Reemplaza únicamente el apartado Scanner Pro por un motor orientado a: fixture real, estado real, análisis previo, decisión y aprendizaje de patrones.
@@ -30,3 +30,6 @@ Pruebas realizadas
 
 Nota de API
 La API-Football limita las peticiones por minuto según el plan y devuelve 429 cuando se supera ese límite. El motor V47 reduce llamadas y usa caché, pero no puede aumentar la cuota de una cuenta externa.
+
+
+V48 API KEY FIX: Fútbol usa siempre el Worker Cloudflare. La clave introducida se envía al Worker mediante x-scanner-api-key; no hay fallback directo al navegador que cause CORS o duplique llamadas. Las respuestas obtenidas con una clave de cliente no se cachean entre claves.
